@@ -157,3 +157,7 @@ dmypy.json
 
 # Local projects for testing
 projects/
+
+output/
+
+IMPLEMENTATION_SUMMARY.md

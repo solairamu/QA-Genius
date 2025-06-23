@@ -39,10 +39,22 @@ def load_tab():
     # --- Architecture Diagram Section ---
     st.markdown("### Architecture")
 
-    arch_path = "C:/Users/User/Downloads/diagram-export-6-9-2025-10_54_25-PM (1).png"  # Use the path you confirmed
+    arch_path = "C:/Users/User/Downloads/diagram-export-6-9-2025-10_54_25-PM (1).png"  
 
     if os.path.exists(arch_path):
         image = Image.open(arch_path)
         st.image(image, caption="QA Genius System Architecture", width=1000)  # ← Option 1: Fixed width
     else:
         st.warning("⚠️ Architecture image not found. Please check the path and file format.")
+
+
+    # --- Entity Diagram Section ---
+    st.markdown("### Entity Relationship Diagram")
+
+    arch_path = "C:/Users/User/Downloads/entity_diag.png"  
+
+    if os.path.exists(arch_path):
+        image = Image.open(arch_path)
+        st.image(image, caption="ER Diagram", width=1000)  # ← Option 1: Fixed width
+    else:
+        st.warning("⚠️ ER image not found. Please check the path and file format.")
