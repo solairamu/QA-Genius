@@ -16,36 +16,6 @@ from core.gx_dashboard import show_rule_compliance_section
 
 
 
-# --- MIGRATION GAUGE ---
-def show_migration_gauge(success_rate):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=success_rate,
-        number={'suffix': "%", 'font': {'size': 36}},
-        title={'text': "Migration Success Rate", 'font': {'size': 18}},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': "green"},
-            'steps': [
-                {'range': [0, 50], 'color': "red"},
-                {'range': [50, 80], 'color': "orange"},
-                {'range': [80, 100], 'color': "lightgreen"}
-            ],
-            'threshold': {
-                'line': {'color': "black", 'width': 4},
-                'thickness': 0.75,
-                'value': success_rate
-            }
-        },
-        domain={'x': [0, 1], 'y': [0, 1]}
-    ))
-    fig.update_layout(
-        height=300,
-        margin=dict(t=30, b=30, l=30, r=30)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-
 # --- QA GENIUS TAB ---
 def show_qa_interface(project_id):
     import duckdb
@@ -195,167 +165,127 @@ def show_qa_interface(project_id):
                     sample_data_info = "\n\nSample data:\n" + df_full.head(3).to_string()
 
                     try:
-                        # --- Generate SQL query from LLM with enhanced prompt ---
-                        enhanced_prompt = f"""
-You are a highly skilled SQL analyst specializing in data validation queries.
-
-Your task is to generate a clean, syntactically valid SQL query using the DuckDB SQL dialect.
-Assume the data is loaded into a single table named `data_table`. 
-
-=== TABLE SCHEMA (column_name: type) ===
-{table_schema}
-=== END SCHEMA ===
-
-=== SAMPLE DATA ===
-{sample_data_info}
-=== END SAMPLE DATA ===
-
-User Question: "{question}"
-
-CRITICAL REQUIREMENTS:
-- FOCUS ONLY on the specific question asked by the user
-- Use exact column names from the schema above
-- Use DuckDB-compatible functions (current_date instead of CURDATE(), current_timestamp instead of NOW())
-- For validation queries, use COUNT(*) to return the number of issues found
-- Return 0 when validation passes, >0 when issues are found
-- If the question is about birth dates, focus ONLY on date validation
-- If the question is about phone numbers, focus ONLY on phone validation
-- Do NOT combine multiple unrelated validations in one query
-- Use realistic date patterns (YYYY-MM-DD format: ____-__-__)
-- For date validation, check for NULL dates, invalid lengths, or impossible dates
-- Do NOT use type casting (::), schema prefixes, or backticks
-
-EXAMPLES for birth date validation:
-- Invalid birth dates: "SELECT COUNT(*) FROM data_table WHERE date_of_birth IS NULL OR LENGTH(date_of_birth) != 10 OR date_of_birth > current_date"
-- Future birth dates: "SELECT COUNT(*) FROM data_table WHERE date_of_birth > current_date"
-- Missing birth dates: "SELECT COUNT(*) FROM data_table WHERE date_of_birth IS NULL"
-
-EXAMPLES for other validations:
-- Null check: "SELECT COUNT(*) FROM data_table WHERE column_name IS NULL"
-- Phone validation: "SELECT COUNT(*) FROM data_table WHERE phone IS NULL OR LENGTH(phone) < 10"
-- Range check: "SELECT COUNT(*) FROM data_table WHERE age < 0 OR age > 120"
-
-Return ONLY the SQL query that directly answers the user's question, no explanations or comments.
-
-SQL:
-"""
-
-                        raw_sql = query_llm(enhanced_prompt, model=SQL_MODEL)
-                        print("RAW SQL FROM ENHANCED LLM:\n", raw_sql)
-
-                        # Clean the SQL response
-                        cleaned_sql = clean_sql_response(raw_sql)
-                        print("CLEANED SQL:\n", cleaned_sql)
-
-                        # Validate and fix the SQL using our enhanced validation system
-                        corrected_sql, is_valid = validate_and_fix_sql(cleaned_sql, table_schema, df_full)
-                        print(f"CORRECTED SQL (Valid: {is_valid}):\n", corrected_sql)
-
-                        # --- Display the query with status ---
-                        st.success("✅ SQL query generated successfully!")
-                        
-                        if corrected_sql != cleaned_sql:
-                            if is_valid:
-                                st.info("🔧 Query was automatically corrected for compatibility")
-                            else:
-                                st.warning("⚠️ Query required fallback correction")
-                        
-                        st.markdown("#### 💻 Generated SQL Query")
-                        st.code(corrected_sql, language="sql")
-                        
-                        # Add execution section with immediate display
-                        if st.button("▶️ Execute Query", key=f"exec_{hash(question)}_{hash(corrected_sql)}", type="primary"):
-                            st.markdown("#### 📋 Query Execution Results")
-                            
+                        # Generate SQL using LLM
+                        with st.spinner("🤖 Generating SQL query..."):
                             try:
-                                import duckdb
+                                sql_query, generation_time = generate_sql_query(table_schema + sample_data_info, question)
                                 
-                                with st.spinner("Executing query..."):
-                                    # Create a fresh DuckDB connection
-                                    con = duckdb.connect(':memory:')
-                                    con.register("data_table", df_full)
-                                    
-                                    # Execute the corrected query
-                                    result = con.execute(corrected_sql).fetchdf()
-                                    con.close()
-                                
-                                # Display results immediately
-                                if result.empty:
-                                    st.success("✅ Query executed successfully - No records returned")
-                                    st.info("*This typically means the condition was not met (good for validation queries)*")
-                                else:
-                                    # Enhanced result interpretation
-                                    st.success(f"✅ Query executed successfully - {len(result)} record(s) returned")
-                                    
-                                    # Smart interpretation for validation queries
-                                    if len(result) == 1 and len(result.columns) == 1:
-                                        # Single value result (likely a COUNT query)
-                                        count_value = result.iloc[0, 0]
-                                        col_name = result.columns[0].lower()
-                                        
-                                        if 'count' in col_name or result.columns[0].lower().endswith('_count'):
-                                            if count_value == 0:
-                                                st.success(f"🎯 **VALIDATION PASSED** - No issues found (count = 0)")
-                                            else:
-                                                st.warning(f"⚠️ **VALIDATION FAILED** - Found {count_value} issue(s)")
-                                        else:
-                                            st.info(f"📊 Result: {count_value}")
-                                    
-                                    # Always show the data table
-                                    st.dataframe(result, use_container_width=True)
-                                    
-                                    # Show download option for larger results
-                                    if len(result) > 10:
-                                        csv_data = result.to_csv(index=False)
-                                        st.download_button(
-                                            label="📥 Download Results as CSV",
-                                            data=csv_data,
-                                            file_name=f"query_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                            mime="text/csv"
-                                        )
-                                
-                                # Show the executed query for reference
-                                st.markdown("---")
-                                st.markdown("#### 📝 Executed Query Details")
-                                st.code(corrected_sql, language='sql')
-                                st.markdown(f"**Execution Time:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                                st.markdown(f"**Total Records Processed:** {len(df_full)}")
-                                
-                                # Log the interaction
-                                log_ai_query(project_id, question, corrected_sql)
-                                
-                            except Exception as e:
-                                st.error(f"❌ Query execution failed: {str(e)}")
-                                
-                                # Enhanced debug information (as markdown section to avoid nested expanders)
-                                st.markdown("---")
-                                st.markdown("#### 🔍 Debug Information")
-                                st.markdown("**Query that failed:**")
-                                st.code(corrected_sql, language='sql')
-                                st.markdown("**Available columns:**")
-                                st.write(df_full.columns.tolist())
-                                st.markdown("**Sample data:**")
-                                st.dataframe(df_full.head(3))
-                                st.markdown("**Data types:**")
-                                for col, dtype in zip(df_full.columns, df_full.dtypes):
-                                    st.text(f"{col}: {dtype}")
-                                st.markdown("**Error Details:**")
-                                st.code(str(e))
-                        
-                        # Alternative: Show a preview of the data that will be queried
-                        with st.expander("📊 Preview Data to be Queried"):
-                            st.markdown(f"**Total records available:** {len(df_full)}")
-                            st.markdown("**Sample data:**")
-                            st.dataframe(df_full.head(10), use_container_width=True)
-                            st.markdown("**Column information:**")
-                            col_info = pd.DataFrame({
-                                'Column': df_full.columns,
-                                'Data Type': df_full.dtypes,
-                                'Non-Null Count': df_full.count(),
-                                'Sample Value': [str(df_full[col].dropna().iloc[0]) if not df_full[col].dropna().empty else 'No data' for col in df_full.columns]
-                            })
-                            st.dataframe(col_info, use_container_width=True)
+                                print(f"Generated SQL: {sql_query}")
 
+                                # Validate and fix the SQL using our enhanced validation system
+                                corrected_sql, is_valid = validate_and_fix_sql(sql_query, table_schema, df_full)
+                                print(f"CORRECTED SQL (Valid: {is_valid}):\n", corrected_sql)
+
+                                # --- Display the query with status ---
+                                st.success(f"✅ SQL query generated successfully! (⏱️ {generation_time:.2f}s)")
+                                
+                                if corrected_sql != sql_query:
+                                    if is_valid:
+                                        st.info("🔧 Query was automatically corrected for compatibility")
+                                    else:
+                                        st.warning("⚠️ Query required fallback correction")
+                                
+                                st.markdown("#### 💻 Generated SQL Query")
+                                st.code(corrected_sql, language="sql")
+
+                                # Add execution section with immediate display
+                                if st.button("▶️ Execute Query", key=f"exec_{hash(question)}_{hash(corrected_sql)}", type="primary"):
+                                    st.markdown("#### 📋 Query Execution Results")
+                                    
+                                    try:
+                                        import duckdb
+                                        
+                                        with st.spinner("Executing query..."):
+                                            # Create a fresh DuckDB connection
+                                            con = duckdb.connect(':memory:')
+                                            con.register("data_table", df_full)
+                                            
+                                            # Execute the corrected query
+                                            result = con.execute(corrected_sql).fetchdf()
+                                            con.close()
+                                        
+                                        # Display results immediately
+                                        if result.empty:
+                                            st.success("✅ Query executed successfully - No records returned")
+                                            st.info("*This typically means the condition was not met (good for validation queries)*")
+                                        else:
+                                            # Enhanced result interpretation
+                                            st.success(f"✅ Query executed successfully - {len(result)} record(s) returned")
+                                            
+                                            # Smart interpretation for validation queries
+                                            if len(result) == 1 and len(result.columns) == 1:
+                                                # Single value result (likely a COUNT query)
+                                                count_value = result.iloc[0, 0]
+                                                col_name = result.columns[0].lower()
+                                                
+                                                if 'count' in col_name or result.columns[0].lower().endswith('_count'):
+                                                    if count_value == 0:
+                                                        st.success(f"🎯 **VALIDATION PASSED** - No issues found (count = 0)")
+                                                    else:
+                                                        st.warning(f"⚠️ **VALIDATION FAILED** - Found {count_value} issue(s)")
+                                                else:
+                                                    st.info(f"📊 Result: {count_value}")
+                                            
+                                            # Always show the data table
+                                            st.dataframe(result, use_container_width=True)
+                                            
+                                            # Show download option for larger results
+                                            if len(result) > 10:
+                                                csv_data = result.to_csv(index=False)
+                                                st.download_button(
+                                                    label="📥 Download Results as CSV",
+                                                    data=csv_data,
+                                                    file_name=f"query_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                                    mime="text/csv"
+                                                )
+                                        
+                                        # Show the executed query for reference
+                                        st.markdown("---")
+                                        st.markdown("#### 📝 Executed Query Details")
+                                        st.code(corrected_sql, language='sql')
+                                        st.markdown(f"**Execution Time:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                                        st.markdown(f"**Total Records Processed:** {len(df_full)}")
+                                        
+                                        # Log the interaction
+                                        log_ai_query(project_id, question, corrected_sql)
+                                        
+                                    except Exception as e:
+                                        st.error(f"❌ Query execution failed: {str(e)}")
+                                        
+                                        # Enhanced debug information (as markdown section to avoid nested expanders)
+                                        st.markdown("---")
+                                        st.markdown("#### 🔍 Debug Information")
+                                        st.markdown("**Query that failed:**")
+                                        st.code(corrected_sql, language='sql')
+                                        st.markdown("**Available columns:**")
+                                        st.write(df_full.columns.tolist())
+                                        st.markdown("**Sample data:**")
+                                        st.dataframe(df_full.head(3))
+                                        st.markdown("**Data types:**")
+                                        for col, dtype in zip(df_full.columns, df_full.dtypes):
+                                            st.text(f"{col}: {dtype}")
+                                        st.markdown("**Error Details:**")
+                                        st.code(str(e))
+                                
+                                # Alternative: Show a preview of the data that will be queried
+                                with st.expander("📊 Preview Data to be Queried"):
+                                    st.markdown(f"**Total records available:** {len(df_full)}")
+                                    st.markdown("**Sample data:**")
+                                    st.dataframe(df_full.head(10), use_container_width=True)
+                                    st.markdown("**Column information:**")
+                                    col_info = pd.DataFrame({
+                                        'Column': df_full.columns,
+                                        'Data Type': df_full.dtypes,
+                                        'Non-Null Count': df_full.count(),
+                                        'Sample Value': [str(df_full[col].dropna().iloc[0]) if not df_full[col].dropna().empty else 'No data' for col in df_full.columns]
+                                    })
+                                    st.dataframe(col_info, use_container_width=True)
+
+                            except Exception as e:
+                                st.error(f"❌ SQL generation failed: {str(e)}")
+                                st.markdown("#### 📋 Fallback Result")
+                                st.dataframe(df_full.head(10))
+                                st.markdown("Please try rephrasing your question or check the sample data above for guidance.")
                     except Exception as e:
                         st.error(f"❌ SQL generation failed: {str(e)}")
                         st.markdown("#### 📋 Fallback Result")
@@ -419,9 +349,16 @@ SQL:
                         df_sample = pd.read_csv(mapped_path).head(5)
                         sample_data = "Sample Mapped Data:\n" + df_sample.to_string(index=False)
                     
-                    # Generate test cases using LLM
+                    st.info("🤖 Generating comprehensive test cases with LLM...")
+                    
+                    # Call LLM to generate test cases
                     test_results = generate_test_cases(source_schema, mapping_spec, business_rules, sample_data)
                     
+                    # Display generation time if available
+                    if "generation_time_formatted" in test_results:
+                        st.info(f"🤖 Test cases generated in {test_results['generation_time_formatted']}")
+                    
+                    # Check for errors in generation
                     if "error" in test_results:
                         st.error(f"❌ {test_results['error']}")
                         return
@@ -435,11 +372,32 @@ SQL:
                         if dynamic_validations:
                             st.info("🔧 Generating data-specific validation queries...")
                             
+                            # Find the highest existing test case ID to avoid conflicts
+                            existing_test_ids = []
+                            for tc in test_results.get("test_cases", []):
+                                tc_id = tc.get('id', '')
+                                if tc_id.startswith('TC') and tc_id[2:].isdigit():
+                                    existing_test_ids.append(int(tc_id[2:]))
+                            
+                            for sql_val in test_results.get("sql_validations", []):
+                                val_id = sql_val.get('test_id', '')
+                                if val_id.startswith('TC') and val_id[2:].isdigit():
+                                    existing_test_ids.append(int(val_id[2:]))
+                            
+                            # Start dynamic test IDs from the next available number
+                            next_id = max(existing_test_ids) + 1 if existing_test_ids else 1
+                            
+                            # Update dynamic validation test IDs to avoid conflicts
+                            for validation in dynamic_validations:
+                                validation["test_id"] = f"TC{next_id:03d}"
+                                next_id += 1
+                            
                             # Generate corresponding test cases for dynamic validations
                             dynamic_test_cases = []
                             for i, validation in enumerate(dynamic_validations):
                                 test_case = {
                                     "id": validation["test_id"],
+                                    "test_id": validation["test_id"],  # Add this for consistency
                                     "category": "Data Quality",
                                     "title": validation["description"].split(" - ")[0],
                                     "description": f"Automated validation: {validation['description']}",
@@ -453,8 +411,9 @@ SQL:
                                 }
                                 dynamic_test_cases.append(test_case)
                             
-                            # Use dynamic validations instead of LLM-generated ones
-                            test_results["sql_validations"] = dynamic_validations
+                            # Combine LLM-generated and dynamic SQL validations instead of replacing
+                            existing_sql_validations = test_results.get("sql_validations", [])
+                            test_results["sql_validations"] = existing_sql_validations + dynamic_validations
                             # Add dynamic test cases to existing ones
                             test_results["test_cases"].extend(dynamic_test_cases)
                     
@@ -497,7 +456,10 @@ SQL:
                         st.info("💡 Enter a batch name to save these test cases for later access")
                     
                     # Display results
-                    st.success("✅ Professional QA test cases generated successfully!")
+                    if "generation_time_formatted" in test_results:
+                        st.success(f"✅ Professional QA test cases generated successfully! (Total time: {test_results['generation_time_formatted']})")
+                    else:
+                        st.success("✅ Professional QA test cases generated successfully!")
                     
                     # Store results in session state to persist through interactions
                     session_key = f"test_results_{project_id}"
@@ -817,6 +779,7 @@ def load_tab():
 # ---------- Dashboard ----------
 def show_project_dashboard(project_id):
     import plotly.express as px
+    import plotly.graph_objects as go
 
     project = get_project_by_id(project_id)
     files = get_project_files(project_id)
@@ -826,234 +789,192 @@ def show_project_dashboard(project_id):
     base_path = os.path.join("projects", safe_name)
     mapped_path = os.path.join(base_path, "artifacts", "mapped_output.csv")
     summary_csv = os.path.join(base_path, "artifacts", "migration_summary.csv")
+    overall_csv = os.path.join(base_path, "artifacts", "overall_validation_summary.csv")
     failed_rows_csv = os.path.join(base_path, "artifacts", "failed_rows.csv")
     pdf_path = os.path.join(base_path, "artifacts", "business_summary.pdf")
     mapping_file_path = next((f['file_path'] for f in files if f['file_type'] == 'mapping'), None)
     business_rules_file_path = next((f['file_path'] for f in files if f['file_type'] == 'business_rules'), None)
 
+    # --- Simple Header ---
     st.markdown(f"## Dashboard for Project: {project['project_name']}")
-    st.markdown(f"Description: {project['project_description']}")
-    st.markdown(f"Created At: {project['created_at']}")
+    st.markdown(f"**Description:** {project['project_description']}")
+    st.markdown(f"**Created At:** {project['created_at']}")
 
-    # --- Project Files Section ---
-    with st.expander("📁 Project Files"):
-        source_files = [f for f in files if f['file_type'] == 'source']
-        mapping_files = [f for f in files if f['file_type'] == 'mapping']
-        business_rules_files = [f for f in files if f['file_type'] == 'business_rules']
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("**📤 Source Files:**")
-            for file in source_files:
-                st.markdown(f"• {file['file_name']}")
-                
-        with col2:
-            st.markdown("**🗂️ Mapping Files:**")
-            for file in mapping_files:
-                st.markdown(f"• {file['file_name']}")
-                
-        with col3:
-            st.markdown("**📋 Business Rules:**")
-            if business_rules_files:
-                for file in business_rules_files:
-                    st.markdown(f"• {file['file_name']}")
-            else:
-                st.markdown("• *No business rules uploaded*")
-
-    # --- Business Rules Preview Section (separate from project files to avoid nesting) ---
-    if business_rules_files:
-        with st.expander("📋 Business Rules Preview"):
-            for file in business_rules_files:
-                st.markdown(f"**{file['file_name']}**")
-                if file['file_name'].endswith('.txt') and os.path.exists(file['file_path']):
-                    try:
-                        with open(file['file_path'], 'r', encoding='utf-8') as f:
-                            content = f.read()
-                            st.text_area(f"Content of {file['file_name']}", content, height=200, disabled=True, key=f"business_rules_{file['file_name']}")
-                    except Exception as e:
-                        st.error(f"Could not preview file: {e}")
-                else:
-                    st.info(f"Preview not available for {file['file_name']} (only .txt files can be previewed)")
-
-    # --- Mapped Output Preview ---
-    with st.expander("View Mapped Output"):
-        if os.path.exists(mapped_path):
-            df_mapped = pd.read_csv(mapped_path)
-            st.dataframe(df_mapped.head(10))
-            with open(mapped_path, "rb") as f:
-                st.download_button("Download Mapped Output", f, file_name="mapped_output.csv")
-
-    # --- Read Migration Summary CSV ---
-    total_records, passed, failed, partial = 0, 0, 0, 0
-    success_rate, fail_rate, partial_rate = 0.0, 0.0, 0.0
+    # --- Load Data ---
+    total_records, complete_records, partial_records, empty_source_records, mapping_failures = 0, 0, 0, 0, 0
+    migration_success_rate, data_completeness_rate, partial_data_rate, empty_source_rate = 0.0, 0.0, 0.0, 0.0
 
     if os.path.exists(summary_csv):
         df_summary = pd.read_csv(summary_csv)
         if not df_summary.empty:
             row = df_summary.iloc[0]
             total_records = int(row.get("total_records", 0))
-            passed = int(row.get("passed", 0))
-            failed = int(row.get("failed", 0))
-            partial = int(row.get("partial", 0))
-            success_rate = float(row.get("success_rate", 0.0))
-            fail_rate = float(row.get("fail_rate", 0.0))
-            partial_rate = float(row.get("partial_rate", 0.0))
+            
+            # Handle both new and old column formats for backward compatibility
+            # New format
+            if "complete_records" in row:
+                complete_records = int(row.get("complete_records", 0))
+                partial_records = int(row.get("partial_records", 0))
+                empty_source_records = int(row.get("empty_source_records", 0))
+                mapping_failures = int(row.get("mapping_failures", 0))
+                migration_success_rate = float(row.get("migration_success_rate", 100.0))
+                data_completeness_rate = float(row.get("data_completeness_rate", 0.0))
+                partial_data_rate = float(row.get("partial_data_rate", 0.0))
+                empty_source_rate = float(row.get("empty_source_rate", 0.0))
+            else:
+                # Old format - convert to new understanding
+                passed = int(row.get("passed", 0))
+                failed = int(row.get("failed", 0))
+                partial = int(row.get("partial", 0))
+                success_rate = float(row.get("success_rate", 0.0))
+                fail_rate = float(row.get("fail_rate", 0.0))
+                partial_rate = float(row.get("partial_rate", 0.0))
+                
+                # Map old values to new understanding
+                complete_records = passed
+                partial_records = partial
+                empty_source_records = failed  # Old "failed" was actually empty source records
+                mapping_failures = 0  # Assume no actual mapping failures in old projects
+                migration_success_rate = 100.0  # All records were successfully processed
+                data_completeness_rate = success_rate  # Old success rate is data completeness
+                partial_data_rate = partial_rate
+                empty_source_rate = fail_rate
 
-    # --- Failed Record Check ---
-    unmapped_count = 0
-    if os.path.exists(failed_rows_csv):
-        df_failed = pd.read_csv(failed_rows_csv)
-        unmapped_count = df_failed.isnull().sum().sum()
+    # Load overall validation data
+    completeness_score, uniqueness_score, validity_score, consistency_score, accuracy_score = 0, 0, 0, 0, 0
+    if os.path.exists(overall_csv):
+        df_overall = pd.read_csv(overall_csv)
+        if not df_overall.empty:
+            row = df_overall.iloc[0]
+            completeness_score = float(row.get("Completeness (%)", 0))
+            uniqueness_score = float(row.get("Uniqueness (%)", 0))
+            validity_score = float(row.get("Validity (%)", 0))
+            consistency_score = float(row.get("Consistency (%)", 0))
+            accuracy_score = float(row.get("Accuracy (%)", 0))
 
-    # --- Summary Section ---
-    st.subheader("Migration Health & Record Summary")
-    colA, colB = st.columns([2, 3])
-    with colA:
-        show_migration_gauge(success_rate)
-    with colB:
-        st.markdown("#### Metrics Overview")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Records Successfully Migrated", f"{success_rate:.1f}%")
-        col2.metric("Records Dropped", f"{fail_rate:.1f}%")
-        col3.metric("Partially Migrated", f"{partial_rate:.1f}%")
-        col4, col5, col6 = st.columns(3)
-        col4.metric("Source Records", total_records)
-        col5.metric("Target Records", passed)
-        col6.metric("Partial Records", unmapped_count)
+    # --- Migration Summary ---
+    st.subheader("Migration Summary")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Complete Records", f"{complete_records:,}", f"{data_completeness_rate:.1f}%")
+    col2.metric("Partial Records", f"{partial_records:,}", f"{partial_data_rate:.1f}%") 
+    col3.metric("Empty Source Records", f"{empty_source_records:,}", f"{empty_source_rate:.1f}%")
+    col4.metric("Total Records", f"{total_records:,}")
 
-    # --- Rule Compliance ---
-    st.subheader("Rule Compliance Overview")
+    # Show mapping success info
+    if mapping_failures > 0:
+        st.error(f"⚠️ {mapping_failures:,} records failed during mapping process")
+    else:
+        st.success(f"✅ All {total_records:,} records successfully processed (Migration Success: {migration_success_rate:.1f}%)")
+
+    # --- Migration Health Gauge ---
+    st.subheader("Data Completeness Health")
+    
+    # Use data completeness rate for the gauge since migration was successful
+    # Create simple gauge chart
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=data_completeness_rate,
+        number={'suffix': "%", 'font': {'size': 36}},
+        title={'text': "Data Completeness Rate", 'font': {'size': 18}},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "green"},
+            'steps': [
+                {'range': [0, 50], 'color': "red"},
+                {'range': [50, 80], 'color': "orange"},
+                {'range': [80, 100], 'color': "lightgreen"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': data_completeness_rate
+            }
+        },
+        domain={'x': [0, 1], 'y': [0, 1]}
+    ))
+    fig_gauge.update_layout(height=300, margin=dict(t=30, b=30, l=30, r=30))
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
+    # --- Data Quality Scores ---
+    st.subheader("Data Quality Dimensions") 
+    
+    qual_col1, qual_col2, qual_col3, qual_col4, qual_col5 = st.columns(5)
+    qual_col1.metric("Completeness", f"{completeness_score:.1f}%")
+    qual_col2.metric("Uniqueness", f"{uniqueness_score:.1f}%")
+    qual_col3.metric("Validity", f"{validity_score:.1f}%")
+    qual_col4.metric("Consistency", f"{consistency_score:.1f}%")
+    qual_col5.metric("Accuracy", f"{accuracy_score:.1f}%")
+
+    # --- Project Files Section ---
+    with st.expander("📁 Project Files"):
+        file_col1, file_col2, file_col3 = st.columns(3)
+        
+        with file_col1:
+            st.markdown("**📤 Source Files**")
+            source_files = [f for f in files if f['file_type'] == 'source']
+            for file in source_files:
+                st.markdown(f"• {file['file_name']}")
+                
+        with file_col2:
+            st.markdown("**🗂️ Mapping Files**")
+            mapping_files = [f for f in files if f['file_type'] == 'mapping']
+            for file in mapping_files:
+                st.markdown(f"• {file['file_name']}")
+                
+        with file_col3:
+            st.markdown("**📋 Business Rules**")
+            business_rules_files = [f for f in files if f['file_type'] == 'business_rules']
+            if business_rules_files:
+                for file in business_rules_files:
+                    st.markdown(f"• {file['file_name']}")
+            else:
+                st.markdown("• *No business rules uploaded*")
+
+    # --- Data Preview ---
+    with st.expander("📊 Data Preview"):
+        if os.path.exists(mapped_path):
+            df_mapped = pd.read_csv(mapped_path)
+            st.markdown(f"**Showing first 10 rows of {len(df_mapped):,} total records**")
+            st.dataframe(df_mapped.head(10), use_container_width=True)
+            
+            # Download button
+            with open(mapped_path, "rb") as f:
+                st.download_button(
+                    "📥 Download Complete Dataset",
+                    f,
+                    file_name="mapped_output.csv",
+                    mime="text/csv"
+                )
+        else:
+            st.warning("⚠️ No mapped output data available.")
+
+    # --- Detailed Quality Analysis ---
+    st.subheader("Detailed Quality Analysis")
     show_rule_compliance_section(base_path)
 
-    # --- Mapping Summary ---
-    if mapping_file_path and os.path.exists(mapping_file_path):
-        # Handle both CSV and XLSX mapping files
-        if mapping_file_path.endswith('.csv'):
-            df_map = pd.read_csv(mapping_file_path)
-        else:  # xlsx
-            df_map = pd.read_excel(mapping_file_path)
-
-        # Detect column mappings dynamically
-        col_map = detect_column_mappings(df_map)
+    # --- Alerts Section ---
+    if mapping_failures > 0 or partial_data_rate > 50 or data_completeness_rate < 70:
+        st.subheader("⚠️ Data Quality Issues")
         
-        # Check if we found the essential columns
-        if 'source' not in col_map or 'target' not in col_map:
-            st.warning("⚠️ Could not detect source and target columns in mapping file for analysis.")
-            st.info(f"Available columns: {df_map.columns.tolist()}")
-        else:
-            def compute_status(row, col_map):
-                target_col = col_map['target']
-                transform_col = col_map.get('transformation_code', '')
-                
-                target_exists = pd.notnull(row[target_col]) and str(row[target_col]).strip() != ""
-                transformation_code = str(row.get(transform_col, "")).strip() if transform_col else ""
-                
-                if not target_exists:
-                    return "Not Mapped"
-                elif not transformation_code or transformation_code.lower() in ["none", "", "null"]:
-                    return "Column Mapped Correctly"
-                else:
-                    try:
-                        compile(transformation_code, "<string>", "exec")
-                        return "Fully Mapped"
-                    except:
-                        return "Mapping Failed"
-
-            df_map["status"] = df_map.apply(lambda row: compute_status(row, col_map), axis=1)
-
-            st.subheader("Data Mapping Summary")
-            status_options = ["Fully Mapped", "Column Mapped Correctly", "Mapping Failed", "Not Mapped"]
-            selected_statuses = st.multiselect("🔍 Filter Mapping Summary By Status", options=status_options, default=status_options)
-            df_display = df_map[df_map["status"].isin(selected_statuses)]
-
-            status_counts = df_display["status"].value_counts().reset_index()
-            status_counts.columns = ["Mapping Status", "Count"]
-            if not status_counts.empty:
-                fig = px.bar(status_counts, x="Count", y="Mapping Status", orientation="h", color="Mapping Status", text="Count", title="Mapping Status Overview", height=400)
-                fig.update_layout(showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-
-            # Display columns using detected names
-            display_cols = [col_map['source'], col_map['target']]
-            if 'transformation_code' in col_map:
-                display_cols.append(col_map['transformation_code'])
-            display_cols.append("status")
-            
-            st.dataframe(df_display[display_cols])
-
-    # --- Alerts Section (Smart) ---
-    st.subheader("Priority Issues & Alerts")
-
-    if unmapped_count > 0 or fail_rate > 0 or partial > 0 or success_rate < 80:
-        alert1, alert2, alert3, alert4 = st.columns(4)
-
-        if unmapped_count > 0:
-            alert1.error("Unmapped Critical Fields")
-        else:
-            alert1.info("No Unmapped Fields")
-
-        if fail_rate > 0:
-            alert2.warning("⚠ Rules Failed in Compliance")
-        else:
-            alert2.success("All Rules Passed")
-
-        if partial > 0:
-            alert3.warning("⚠ Data Gaps Detected")
-        else:
-            alert3.info("No Data Gaps")
-
-        if success_rate < 80:
-            alert4.warning("Long Running Migration")
-        else:
-            alert4.success("Migration Healthy")
+        if mapping_failures > 0:
+            st.error(f"**{mapping_failures:,} records** failed during the mapping process")
+        if partial_data_rate > 50:
+            st.warning(f"**{partial_data_rate:.1f}%** of records have incomplete source data")
+        if data_completeness_rate < 70:
+            st.warning(f"Data completeness rate ({data_completeness_rate:.1f}%) is below recommended threshold (70%)")
+        if empty_source_records > 0:
+            st.info(f"**{empty_source_records:,} records** had no source data (empty rows in original file)")
     else:
-        st.info(" No alerts to display. Data looks good.")
+        st.success("✅ Data Quality Status: Good - All records processed successfully with acceptable completeness")
 
     # --- Business Report ---
     if os.path.exists(pdf_path):
+        st.subheader("📄 Business Report")
         with open(pdf_path, "rb") as f:
-            st.subheader("📥 Business Report")
-            st.download_button("📄 Download Business Summary (PDF)", f, file_name="business_summary.pdf")
-
-def detect_column_mappings(mapping_df: pd.DataFrame) -> dict:
-    """
-    Dynamically detect column mappings based on common naming patterns.
-    Returns a dictionary mapping standard names to actual column names.
-    """
-    columns = [col.lower().strip() for col in mapping_df.columns]
-    column_map = {}
-    
-    # Source column variations
-    source_patterns = ['source', 'sourcefield', 'source_field', 'src', 'from', 'input', 'original']
-    for pattern in source_patterns:
-        matches = [col for col in columns if pattern in col.lower()]
-        if matches:
-            # Find the actual column name (preserving original case)
-            actual_col = next(orig_col for orig_col in mapping_df.columns 
-                            if orig_col.lower().strip() == matches[0])
-            column_map['source'] = actual_col
-            break
-    
-    # Target column variations
-    target_patterns = ['target', 'targetfield', 'target_field', 'tgt', 'to', 'output', 'destination', 'dest']
-    for pattern in target_patterns:
-        matches = [col for col in columns if pattern in col.lower()]
-        if matches:
-            actual_col = next(orig_col for orig_col in mapping_df.columns 
-                            if orig_col.lower().strip() == matches[0])
-            column_map['target'] = actual_col
-            break
-    
-    # Transformation column variations
-    transform_patterns = ['transformation', 'transform', 'transformation_code', 'transform_code', 
-                         'code', 'logic', 'rule', 'formula', 'expression']
-    for pattern in transform_patterns:
-        matches = [col for col in columns if pattern in col.lower()]
-        if matches:
-            actual_col = next(orig_col for orig_col in mapping_df.columns 
-                            if orig_col.lower().strip() == matches[0])
-            column_map['transformation_code'] = actual_col
-            break
-    
-    return column_map
+            st.download_button(
+                "📄 Download Business Summary (PDF)",
+                f,
+                file_name="business_summary.pdf",
+                mime="application/pdf"
+            )

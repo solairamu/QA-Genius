@@ -2,6 +2,7 @@ import ollama
 import json
 import duckdb
 import re
+import time
 
 # --- Set model names ---
 SQL_MODEL = "mistral:7b-instruct"
@@ -21,6 +22,30 @@ def query_llm(prompt: str, model: str) -> str:
         return content
     except Exception as e:
         return f"ERROR: {str(e)}"
+
+# --- Timed LLM call for tracking performance ---
+def query_llm_with_timing(prompt: str, model: str) -> tuple[str, float]:
+    """
+    Execute LLM query and return both the response and the time taken.
+    Returns (response, time_in_seconds)
+    """
+    try:
+        start_time = time.time()
+        response = ollama.chat(
+            model=model,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        content = response.get("message", {}).get("content", "").strip()
+        if not content:
+            return "ERROR: Empty response from LLM", duration
+        return content, duration
+    except Exception as e:
+        end_time = time.time()
+        duration = end_time - start_time if 'start_time' in locals() else 0
+        return f"ERROR: {str(e)}", duration
 
 # --- SQL Cleanup Function ---
 def clean_sql_response(response: str) -> str:
@@ -65,7 +90,7 @@ def clean_sql_response(response: str) -> str:
     return cleaned_sql.strip()
 
 # --- SQL Query Generator ---
-def generate_sql_query(table_schema: str, question: str) -> str:
+def generate_sql_query(table_schema: str, question: str) -> tuple[str, float]:
     prompt = f"""
 You are a highly skilled SQL analyst.
 
@@ -86,13 +111,14 @@ Instructions:
 
 SQL:
 """
-    raw_response = query_llm(prompt, model=SQL_MODEL)
+    raw_response, llm_time = query_llm_with_timing(prompt, model=SQL_MODEL)
 
     # 🧠 Debug output
     print("RAW SQL FROM LLM:\n", raw_response)
-    print("CLEANED SQL SENT TO DUCKDB:\n", clean_sql_response(raw_response))
+    cleaned_sql = clean_sql_response(raw_response)
+    print("CLEANED SQL SENT TO DUCKDB:\n", cleaned_sql)
 
-    return clean_sql_response(raw_response)
+    return cleaned_sql, llm_time
 
 # --- SQL Validation and Correction Function ---
 def validate_and_fix_sql(query: str, schema_info: str, sample_data_df) -> tuple[str, bool]:
@@ -182,7 +208,8 @@ Corrected SQL:
 """
                 
                 try:
-                    corrected_sql = query_llm(correction_prompt, model=SQL_MODEL)
+                    corrected_sql, correction_time = query_llm_with_timing(correction_prompt, model=SQL_MODEL)
+                    print(f"🕒 LLM SQL Correction Time: {correction_time:.2f} seconds")
                     corrected_sql = clean_sql_response(corrected_sql)
                     
                     # Test the LLM-corrected query
@@ -251,7 +278,7 @@ Corrected SQL:
 def generate_test_cases(source_data_schema: str, mapping_spec: str, business_rules: str, sample_data: str) -> dict:
     """
     Generate comprehensive test cases like a professional QA engineer.
-    Returns both structured test cases and SQL validation queries.
+    Returns both structured test cases and SQL validation queries with timing information.
     """
     
     prompt = f"""
@@ -358,8 +385,9 @@ CRITICAL REQUIREMENTS:
 """
 
     try:
-        raw_response = query_llm(prompt, model=TEST_CASE_MODEL)
+        raw_response, llm_time = query_llm_with_timing(prompt, model=TEST_CASE_MODEL)
         print("RAW TEST CASES FROM LLM:\n", raw_response)
+        print(f"🕒 LLM Test Case Generation Time: {llm_time:.2f} seconds")
         
         # Try to parse as JSON
         try:
@@ -392,7 +420,18 @@ CRITICAL REQUIREMENTS:
             if "sql_validations" not in test_cases_data:
                 test_cases_data["sql_validations"] = []
             
-            print(f"Successfully parsed JSON: {len(test_cases_data.get('test_cases', []))} test cases, {len(test_cases_data.get('sql_validations', []))} SQL validations")
+            # Ensure test cases have both id and test_id fields for consistency
+            for test_case in test_cases_data.get("test_cases", []):
+                if "id" in test_case and "test_id" not in test_case:
+                    test_case["test_id"] = test_case["id"]
+                elif "test_id" in test_case and "id" not in test_case:
+                    test_case["id"] = test_case["test_id"]
+            
+            # Add timing information to the response
+            test_cases_data["generation_time"] = llm_time
+            test_cases_data["generation_time_formatted"] = f"{llm_time:.2f} seconds"
+            
+            print(f"Successfully parsed JSON: {len(test_cases_data.get('test_cases', []))} test cases, {len(test_cases_data.get('sql_validations', []))} SQL validations (Generated in {llm_time:.2f}s)")
             
             return test_cases_data
             
@@ -430,14 +469,18 @@ CRITICAL REQUIREMENTS:
                     }
                 ],
                 "parsing_error": str(e),
-                "raw_response": raw_response
+                "raw_response": raw_response,
+                "generation_time": llm_time,
+                "generation_time_formatted": f"{llm_time:.2f} seconds"
             }
     except Exception as e:
         print(f"LLM query failed: {e}")
         return {
             "error": f"Failed to generate test cases: {str(e)}",
             "test_cases": [],
-            "sql_validations": []
+            "sql_validations": [],
+            "generation_time": 0,
+            "generation_time_formatted": "0.00 seconds"
         }
 
 # --- Data Insight Generator (unchanged) ---

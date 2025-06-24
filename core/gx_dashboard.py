@@ -62,48 +62,124 @@ def show_rule_compliance_section(base_path):
     # 🎯 Overall Validation Donut Chart
     st.markdown("#### 🎯 Overall Validation Status")
     try:
-        total = int(df_overall['total records'].iloc[0])
-        passed = int(df_overall['passed'].iloc[0])
-        failed = int(df_overall['failed'].iloc[0])
-        other = total - passed - failed
+        # Check if this is migration data (has 'total records') or validation data (has 'dimension')
+        if 'total records' in df_overall.columns or 'Total Records' in df_overall.columns:
+            # This is migration data - handle the old way
+            if 'total records' in df_overall.columns:
+                total_col = 'total records'
+            else:
+                total_col = 'Total Records'
+            
+            total = int(df_overall[total_col].iloc[0])
+            
+            # Handle new and old field names for migration data
+            complete_records = 0
+            partial_records = 0
+            empty_source_records = 0
+            
+            # Try new field names first, then fallback to old ones
+            if 'passed' in df_overall.columns:
+                complete_records = int(df_overall['passed'].iloc[0])
+            elif 'Passed' in df_overall.columns:
+                complete_records = int(df_overall['Passed'].iloc[0])
+                
+            if 'partial' in df_overall.columns:
+                partial_records = int(df_overall['partial'].iloc[0])
+            elif 'Partial' in df_overall.columns:
+                partial_records = int(df_overall['Partial'].iloc[0])
+                
+            if 'empty source' in df_overall.columns:
+                empty_source_records = int(df_overall['empty source'].iloc[0])
+            elif 'Empty Source' in df_overall.columns:
+                empty_source_records = int(df_overall['Empty Source'].iloc[0])
+            elif 'failed' in df_overall.columns:
+                # Fallback to old 'failed' field if new field not available
+                empty_source_records = int(df_overall['failed'].iloc[0])
+            elif 'Failed' in df_overall.columns:
+                empty_source_records = int(df_overall['Failed'].iloc[0])
 
-        fig_overall = px.pie(
-            names=["Passed", "Failed", "Other"],
-            values=[passed, failed, other],
-            hole=0.4,
-            title="Overall Validation"
-        )
-        fig_overall.update_traces(
-            marker=dict(colors=["green", "red", "gray"]),
-            textposition='inside',
-            textinfo='percent+label'
-        )
-        st.plotly_chart(fig_overall, use_container_width=True)
+            # Create migration status chart
+            fig_overall = px.pie(
+                names=["Complete Records", "Partial Records", "Empty Source Records"],
+                values=[complete_records, partial_records, empty_source_records],
+                hole=0.4,
+                title="Data Completeness Status",
+                color_discrete_map={"Complete Records": "green", "Partial Records": "orange", "Empty Source Records": "lightcoral"}
+            )
+            fig_overall.update_traces(
+                textposition='inside',
+                textinfo='percent+label'
+            )
+            st.plotly_chart(fig_overall, use_container_width=True)
+            
+        elif 'dimension' in df_overall.columns:
+            # This is validation dimension data - create a different chart
+            # Calculate overall data quality score
+            avg_scores = df_overall['avg_passed_score'].tolist()
+            dimension_names = df_overall['dimension'].tolist()
+            
+            # Create a donut chart showing dimension scores
+            fig_overall = px.pie(
+                names=[f"{dim.capitalize()}: {score:.1f}%" for dim, score in zip(dimension_names, avg_scores)],
+                values=avg_scores,
+                hole=0.4,
+                title="Data Quality Dimension Scores",
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            fig_overall.update_traces(
+                textposition='inside',
+                textinfo='label+percent'
+            )
+            st.plotly_chart(fig_overall, use_container_width=True)
+            
+            # Show overall quality score
+            overall_quality = sum(avg_scores) / len(avg_scores)
+            st.metric("Overall Data Quality Score", f"{overall_quality:.1f}%")
+            
+        else:
+            st.warning("❌ Unrecognized overall validation data format")
+            
     except Exception as e:
         st.warning(f"❌ Error loading overall chart: {e}")
+        # Debug information
+        st.write("Available columns:", df_overall.columns.tolist())
+        st.write("Sample data:", df_overall.head())
 
     # 📊 Per-Dimension Pie Charts
     st.markdown("#### 🧪 Per-Dimension Pass Rate")
-    dimension_cols = {
-        "completeness (%)": "Completeness",
-        "uniqueness (%)": "Uniqueness",
-        "validity (%)": "Validity",
-        "consistency (%)": "Consistency",
-        "accuracy (%)": "Accuracy"
-    }
-
-    pie_cols = st.columns(5)
-    for i, (col_key, display_name) in enumerate(dimension_cols.items()):
-        col_key = col_key.lower()
-        if col_key in df_overall.columns:
-            try:
-                score = float(df_overall[col_key].iloc[0])
-                fail_score = max(0.0, 100 - score)
+    
+    # Debug section - show what rules actually exist
+    if not df_rules.empty:
+        with st.expander("🔍 Debug: Available Validation Rules"):
+            st.write("**Dimensions found in validation data:**")
+            available_dimensions = df_rules["dimension"].unique()
+            st.write(available_dimensions)
+            st.write("**Rule counts by dimension:**")
+            dimension_counts = df_rules["dimension"].value_counts()
+            st.write(dimension_counts)
+            st.write("**Sample rules data:**")
+            st.dataframe(df_rules[["column_name", "dimension", "rule_type", "passed_score"]].head(10))
+    
+    # Calculate dimension scores from the detailed rules data (more accurate)
+    if not df_rules.empty:
+        pie_cols = st.columns(5)
+        dimensions = ["completeness", "uniqueness", "validity", "consistency", "accuracy"]
+        
+        for i, dimension in enumerate(dimensions):
+            # Filter rules for this dimension
+            dimension_rules = df_rules[df_rules["dimension"] == dimension]
+            
+            if not dimension_rules.empty:
+                # Calculate average pass rate for this dimension
+                avg_pass_rate = dimension_rules["passed_score"].mean()
+                avg_fail_rate = 100.0 - avg_pass_rate
+                
+                # Create pie chart
                 fig = px.pie(
                     names=["Passed", "Failed"],
-                    values=[score, fail_score],
+                    values=[avg_pass_rate, avg_fail_rate],
                     hole=0.5,
-                    title=display_name
+                    title=dimension.capitalize()
                 )
                 fig.update_traces(
                     marker=dict(colors=["green", "red"]),
@@ -112,10 +188,13 @@ def show_rule_compliance_section(base_path):
                 )
                 fig.update_layout(margin=dict(t=40, b=20, l=0, r=0))
                 pie_cols[i].plotly_chart(fig, use_container_width=True)
-            except:
-                pie_cols[i].info(f"{display_name} data not available")
-        else:
-            pie_cols[i].warning(f"Missing: {display_name}")
+                
+                # Show the actual percentage below the chart
+                pie_cols[i].metric(f"{dimension.capitalize()} Score", f"{avg_pass_rate:.1f}%")
+            else:
+                pie_cols[i].info(f"No {dimension} rules found")
+    else:
+        st.warning("No detailed validation rules found for per-dimension analysis.")
 
     # --- Red Flag Summary
     st.markdown("### 🚨 Red Flag Summary (Failed Rows per Rule & Column)")
