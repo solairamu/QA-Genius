@@ -35,7 +35,7 @@ def show_qa_interface(project_id):
     source_file_paths = [f['file_path'] for f in files if f['file_type'] == 'source']
 
     # --- Mapped Output Preview ---
-    st.markdown("### 📊 Mapped Output Preview")
+    st.markdown("### Mapped Output Preview")
     if os.path.exists(mapped_path):
         df_mapped = pd.read_csv(mapped_path)
         st.dataframe(df_mapped, height=200, use_container_width=True)
@@ -44,7 +44,7 @@ def show_qa_interface(project_id):
         return
 
     # --- Saved Test Case Batches Section ---
-    st.markdown("### 🗂️ Saved Test Case Batches")
+    st.markdown("### Saved Test Case Batches")
     
     # Get saved batches for this project
     saved_batches = get_test_case_batches_by_project(project_id)
@@ -52,12 +52,12 @@ def show_qa_interface(project_id):
     if saved_batches:
         # Create dropdown for saved batches
         batch_options = [f"Batch {batch['batch_id']}: {batch['batch_name']} ({batch['test_case_count']} tests, {batch['sql_validation_count']} SQL)" for batch in saved_batches]
-        batch_options.insert(0, "🆕 Generate New Test Cases")
+        batch_options.insert(0, "Generate New Test Cases")
         
-        selected_option = st.selectbox("📋 Select Test Case Batch", batch_options, key="batch_selector")
+        selected_option = st.selectbox("Select Test Case Batch", batch_options, key="batch_selector")
         
         # Handle saved batch selection
-        if selected_option != "🆕 Generate New Test Cases":
+        if selected_option != "Generate New Test Cases":
             # Extract batch_id from the selected option
             batch_id = int(selected_option.split("Batch ")[1].split(":")[0])
             
@@ -72,13 +72,13 @@ def show_qa_interface(project_id):
             if batch_data:
                 batch_info = batch_data['batch_info']
                 
-                st.success(f"📂 Loaded: {batch_info['batch_name']}")
+                st.success(f"Loaded: {batch_info['batch_name']}")
                 st.info(f"Created: {batch_info['created_at']} | Tests: {batch_info['test_case_count']} | SQL Validations: {batch_info['sql_validation_count']}")
                 
                 # Delete batch option
                 col_delete, col_spacer = st.columns([1, 3])
                 with col_delete:
-                    if st.button("🗑️ Delete Batch", key=f"delete_batch_{batch_id}"):
+                    if st.button("Delete Batch", key=f"delete_batch_{batch_id}"):
                         if delete_test_case_batch(batch_id):
                             st.success("Batch deleted successfully!")
                             st.rerun()
@@ -96,19 +96,19 @@ def show_qa_interface(project_id):
             if session_key in st.session_state and st.session_state[session_key]:
                 stored_results = st.session_state[session_key]
                 
-                st.markdown("### 📋 Previously Generated Test Results")
+                st.markdown("### Previously Generated Test Results")
                 
                 # Show when these were generated
                 generated_at = stored_results.get('generated_at', 'Unknown')
                 batch_name = stored_results.get('batch_name')
                 
                 if batch_name:
-                    st.info(f"📂 Results for batch: **{batch_name}** (Generated: {generated_at})")
+                    st.info(f"Results for batch: **{batch_name}** (Generated: {generated_at})")
                 else:
-                    st.info(f"📝 Generated test cases (Created: {generated_at}) - Enter a batch name below to save these results")
+                    st.info(f"Generated test cases (Created: {generated_at}) - Enter a batch name below to save these results")
                 
                 # Clear button
-                if st.button("🗑️ Clear These Results", key="clear_generated_top"):
+                if st.button("Clear These Results", key="clear_generated_top"):
                     del st.session_state[session_key]
                     if 'sql_results' in st.session_state:
                         # Clear SQL execution results too
@@ -128,21 +128,21 @@ def show_qa_interface(project_id):
         st.info("No saved test case batches found for this project. Generate your first batch below!")
 
     # --- Main QA Features ---
-    st.markdown("### 🧪 QA Testing Features")
+    st.markdown("### QA Testing Features")
     
     # Create two columns for the main features
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("#### 🔍 SQL Query Generation")
+        st.markdown("#### SQL Query Generation")
         st.info("Generate custom SQL queries to test specific data conditions")
         
         # --- User Input for Test Case ---
         question = st.text_input("Describe the data condition to test", key="sql_question")
 
-        if st.button("🚀 Generate SQL Query", key="generate_sql"):
+        if st.button("Generate SQL Query", key="generate_sql"):
             if question.strip():
-                with st.spinner("Generating and validating SQL query..."):
+                with st.spinner("Generating SQL query..."):
                     # --- Load full mapped dataset ---
                     if os.path.exists(mapped_path):
                         df_full = pd.read_csv(mapped_path, header=0)
@@ -177,7 +177,7 @@ def show_qa_interface(project_id):
                                 print(f"CORRECTED SQL (Valid: {is_valid}):\n", corrected_sql)
 
                                 # --- Display the query with status ---
-                                st.success(f"✅ SQL query generated successfully! (⏱️ {generation_time:.2f}s)")
+                                st.success(f"✅ SQL query generated successfully! ({generation_time:.2f}s)")
                                 
                                 if corrected_sql != sql_query:
                                     if is_valid:
@@ -185,12 +185,12 @@ def show_qa_interface(project_id):
                                     else:
                                         st.warning("⚠️ Query required fallback correction")
                                 
-                                st.markdown("#### 💻 Generated SQL Query")
+                                st.markdown("#### Generated SQL Query")
                                 st.code(corrected_sql, language="sql")
 
                                 # Add execution section with immediate display
-                                if st.button("▶️ Execute Query", key=f"exec_{hash(question)}_{hash(corrected_sql)}", type="primary"):
-                                    st.markdown("#### 📋 Query Execution Results")
+                                if st.button("Execute Query", key=f"exec_{hash(question)}_{hash(corrected_sql)}", type="primary"):
+                                    st.markdown("#### Query Execution Results")
                                     
                                     try:
                                         import duckdb
@@ -233,15 +233,14 @@ def show_qa_interface(project_id):
                                             if len(result) > 10:
                                                 csv_data = result.to_csv(index=False)
                                                 st.download_button(
-                                                    label="📥 Download Results as CSV",
+                                                    label="Download Results as CSV",
                                                     data=csv_data,
                                                     file_name=f"query_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
                                                     mime="text/csv"
                                                 )
                                         
                                         # Show the executed query for reference
-                                        st.markdown("---")
-                                        st.markdown("#### 📝 Executed Query Details")
+                                        st.markdown("#### Executed Query Details")
                                         st.code(corrected_sql, language='sql')
                                         st.markdown(f"**Execution Time:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
                                         st.markdown(f"**Total Records Processed:** {len(df_full)}")
@@ -253,8 +252,7 @@ def show_qa_interface(project_id):
                                         st.error(f"❌ Query execution failed: {str(e)}")
                                         
                                         # Enhanced debug information (as markdown section to avoid nested expanders)
-                                        st.markdown("---")
-                                        st.markdown("#### 🔍 Debug Information")
+                                        st.markdown("#### Debug Information")
                                         st.markdown("**Query that failed:**")
                                         st.code(corrected_sql, language='sql')
                                         st.markdown("**Available columns:**")
@@ -268,7 +266,7 @@ def show_qa_interface(project_id):
                                         st.code(str(e))
                                 
                                 # Alternative: Show a preview of the data that will be queried
-                                with st.expander("📊 Preview Data to be Queried"):
+                                with st.expander("Preview Data to be Queried"):
                                     st.markdown(f"**Total records available:** {len(df_full)}")
                                     st.markdown("**Sample data:**")
                                     st.dataframe(df_full.head(10), use_container_width=True)
@@ -288,20 +286,20 @@ def show_qa_interface(project_id):
                                 st.markdown("Please try rephrasing your question or check the sample data above for guidance.")
                     except Exception as e:
                         st.error(f"❌ SQL generation failed: {str(e)}")
-                        st.markdown("#### 📋 Fallback Result")
+                        st.markdown("#### Fallback Result")
                         st.dataframe(df_full.head(10))
                         st.markdown("Please try rephrasing your question or check the sample data above for guidance.")
             else:
                 st.warning("Please enter a question to generate SQL.")
     
     with col2:
-        st.markdown("#### 🎯 Comprehensive Test Case Generation")
+        st.markdown("#### Comprehensive Test Case Generation")
         st.info("Generate professional QA test cases based on your business rules and data structure")
         
         # Batch name input
-        batch_name = st.text_input("💾 Batch Name (for saving)", placeholder="e.g., Medical Data Validation V1", key="batch_name")
+        batch_name = st.text_input("Batch Name (for saving)", placeholder="e.g., Medical Data Validation V1", key="batch_name")
         
-        if st.button("🎯 Create Test Cases", key="generate_test_cases"):
+        if st.button("Create Test Cases", key="generate_test_cases"):
             with st.spinner("AI QA Engineer is analyzing your project and creating test cases..."):
                 try:
                     # Gather all project information for test case generation
@@ -349,14 +347,14 @@ def show_qa_interface(project_id):
                         df_sample = pd.read_csv(mapped_path).head(5)
                         sample_data = "Sample Mapped Data:\n" + df_sample.to_string(index=False)
                     
-                    st.info("🤖 Generating comprehensive test cases with LLM...")
+                    st.info("Generating comprehensive test cases with LLM...")
                     
                     # Call LLM to generate test cases
                     test_results = generate_test_cases(source_schema, mapping_spec, business_rules, sample_data)
                     
                     # Display generation time if available
                     if "generation_time_formatted" in test_results:
-                        st.info(f"🤖 Test cases generated in {test_results['generation_time_formatted']}")
+                        st.info(f"Test cases generated in {test_results['generation_time_formatted']}")
                     
                     # Check for errors in generation
                     if "error" in test_results:
@@ -370,7 +368,7 @@ def show_qa_interface(project_id):
                         
                         # Replace or enhance LLM-generated SQL validations with dynamic-specific ones
                         if dynamic_validations:
-                            st.info("🔧 Generating data-specific validation queries...")
+                            st.info("Generating data-specific validation queries...")
                             
                             # Find the highest existing test case ID to avoid conflicts
                             existing_test_ids = []
@@ -419,7 +417,7 @@ def show_qa_interface(project_id):
                     
                     # Validate and fix SQL queries before saving/displaying
                     if "sql_validations" in test_results and test_results["sql_validations"]:
-                        st.info("🔧 Validating and fixing SQL queries...")
+                        st.info("Validating and fixing SQL queries...")
                         
                         fixed_validations = []
                         for sql_validation in test_results["sql_validations"]:
@@ -453,7 +451,7 @@ def show_qa_interface(project_id):
                         else:
                             st.warning("⚠️ Test cases generated but could not be saved to database")
                     else:
-                        st.info("💡 Enter a batch name to save these test cases for later access")
+                        st.info("Enter a batch name to save these test cases for later access")
                     
                     # Display results
                     if "generation_time_formatted" in test_results:
@@ -516,10 +514,10 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
         sql_by_test_id[test_id] = sql_val
 
     # Create tabs: Integrated view and Summary
-    test_tabs = st.tabs(["🧪 Test Cases & SQL Validations", "📊 Test Summary"])
+    test_tabs = st.tabs(["Test Cases & SQL Validations", "Test Summary"])
     
     with test_tabs[0]:
-        st.markdown("### 🧪 Comprehensive Test Cases")
+        st.markdown("### Comprehensive Test Cases")
         st.markdown("*Each test case includes its executable SQL validation (if available)*")
         
         # Show statistics at the top
@@ -528,9 +526,9 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
         test_cases_without_sql = total_test_cases - test_cases_with_sql
         
         if test_cases_without_sql > 0:
-            st.warning(f"📊 Displaying {total_test_cases} test cases: {test_cases_with_sql} with SQL validations, {test_cases_without_sql} without SQL")
+            st.warning(f"Displaying {total_test_cases} test cases: {test_cases_with_sql} with SQL validations, {test_cases_without_sql} without SQL")
         else:
-            st.info(f"📊 Displaying {total_test_cases} test cases, all with SQL validations")
+            st.info(f"Displaying {total_test_cases} test cases, all with SQL validations")
         
         for i, test_case in enumerate(test_cases):
             test_id = test_case.get('test_id', test_case.get('id', f'TC{i+1:03d}'))
@@ -543,11 +541,11 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
             
             # Color-code the severity in the expander title, add SQL indicator
             severity_icon = "🔴" if severity == "High" else "🟡" if severity == "Medium" else "🟢"
-            sql_indicator = " 💻" if has_sql else " ⚠️"
+            sql_indicator = " SQL" if has_sql else " ⚠️"
             
             with st.expander(f"{severity_icon} {test_id} - {title} [{severity}]{sql_indicator}", expanded=False):
                 # Test Case Details
-                st.markdown("#### 📋 Test Case Details")
+                st.markdown("#### Test Case Details")
                 
                 col1, col2 = st.columns([2, 1])
                 with col1:
@@ -579,7 +577,7 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
                 # Display SQL validation if available
                 if has_sql:
                     st.markdown("---")
-                    st.markdown("#### 💻 SQL Validation Query")
+                    st.markdown("#### SQL Validation Query")
                     
                     query = matching_sql.get('query_sql', matching_sql.get('query', 'SELECT 1'))
                     description = matching_sql.get('description', 'SQL Test')
@@ -593,7 +591,7 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
                     
                     with col_run:
                         run_button_key = f"run_sql_{test_id}_{i}_{hash(str(df_mapped.columns.tolist()))}"
-                        if st.button(f"▶️ Execute Test", key=run_button_key, type="primary"):
+                        if st.button(f"Execute Test", key=run_button_key, type="primary"):
                             try:
                                 import duckdb
                                 
@@ -630,7 +628,7 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
                                             else:
                                                 st.warning(f"⚠️ **VALIDATION FAILED** - Found {count_value} issue(s)")
                                         else:
-                                            st.info(f"📊 Result: {count_value}")
+                                            st.info(f"Result: {count_value}")
                                     
                                     # Always show the data table
                                     st.dataframe(result, use_container_width=True)
@@ -639,15 +637,14 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
                                     if len(result) > 10:
                                         csv_data = result.to_csv(index=False)
                                         st.download_button(
-                                            label="📥 Download Results as CSV",
+                                            label="Download Results as CSV",
                                             data=csv_data,
                                             file_name=f"query_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
                                             mime="text/csv"
                                         )
                                 
                                 # Show the executed query for reference
-                                st.markdown("---")
-                                st.markdown("#### 📝 Executed Query Details")
+                                st.markdown("#### Executed Query Details")
                                 st.code(query, language='sql')
                                 st.markdown(f"**Execution Time:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
                                 st.markdown(f"**Total Records Processed:** {len(df_mapped)}")
@@ -656,8 +653,7 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
                                 st.error(f"❌ Query execution failed: {str(e)}")
                                 
                                 # Enhanced debug information (as markdown section to avoid nested expanders)
-                                st.markdown("---")
-                                st.markdown("#### 🔍 Debug Information")
+                                st.markdown("#### Debug Information")
                                 st.markdown("**Query that failed:**")
                                 st.code(query, language='sql')
                                 st.markdown("**Available columns:**")
@@ -681,21 +677,21 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
                     st.markdown("• Document findings and any issues discovered")
                     
                     # Offer to generate a basic SQL query
-                    if st.button(f"🔧 Try to Generate SQL", key=f"generate_sql_{test_id}_{i}"):
-                        st.info("💡 **Tip:** Use the 'SQL Query Generation' tool in the left column to create a custom validation query for this test case.")
+                    if st.button(f"Try to Generate SQL", key=f"generate_sql_{test_id}_{i}"):
+                        st.info("**Tip:** Use the 'SQL Query Generation' tool in the left column to create a custom validation query for this test case.")
                 
                 st.markdown("---")  # Separator between test cases
     
     with test_tabs[1]:
-        st.markdown("### 📊 Test Summary")
+        st.markdown("### Test Summary")
         
         test_cases_count = len(test_cases)
         sql_tests_count = len(sql_validations)
         
         col_a, col_b, col_c = st.columns(3)
-        col_a.metric("📝 Test Cases", test_cases_count)
-        col_b.metric("💻 SQL Validations", sql_tests_count)
-        col_c.metric("🎯 Total Tests", test_cases_count + sql_tests_count)
+        col_a.metric("Test Cases", test_cases_count)
+        col_b.metric("SQL Validations", sql_tests_count)
+        col_c.metric("Total Tests", test_cases_count + sql_tests_count)
         
         # Category breakdown
         if test_cases:
@@ -711,12 +707,12 @@ def display_test_case_results(test_cases, sql_validations, df_mapped, is_saved_b
             col_left, col_right = st.columns(2)
             
             with col_left:
-                st.markdown("**📊 Test Categories:**")
+                st.markdown("**Test Categories:**")
                 for cat, count in categories.items():
                     st.markdown(f"• {cat}: {count} tests")
             
             with col_right:
-                st.markdown("**🎚️ Priority Distribution:**")
+                st.markdown("**Priority Distribution:**")
                 for sev, count in severities.items():
                     color = "🔴" if sev == "High" else "🟡" if sev == "Medium" else "🟢"
                     st.markdown(f"• {color} {sev}: {count} tests")
@@ -743,7 +739,7 @@ def load_tab():
 
     df_sorted = df.sort_values(by="created_at", ascending=False)
 
-    with st.expander("📂View All Projects"):
+    with st.expander("View All Projects"):
         # Update the displayed columns to include business rules
         display_columns = ["project_id", "project_name", "project_description", "created_at"]
         if "business_rules_files" in df_sorted.columns:
@@ -757,7 +753,7 @@ def load_tab():
         project_id = int(project_row["project_id"])
         st.session_state.selected_project_id = project_id
 
-        with st.expander("🗑 Delete Project"):
+        with st.expander("Delete Project"):
             st.markdown(f"*Project:* {selected_project}")
             delete_confirm = st.checkbox("I understand deleting this project is permanent.")
             if st.button("Delete Project", disabled=not delete_confirm):
@@ -907,23 +903,23 @@ def show_project_dashboard(project_id):
     qual_col5.metric("Accuracy", f"{accuracy_score:.1f}%")
 
     # --- Project Files Section ---
-    with st.expander("📁 Project Files"):
+    with st.expander("Project Files"):
         file_col1, file_col2, file_col3 = st.columns(3)
         
         with file_col1:
-            st.markdown("**📤 Source Files**")
+            st.markdown("**Source Files**")
             source_files = [f for f in files if f['file_type'] == 'source']
             for file in source_files:
                 st.markdown(f"• {file['file_name']}")
                 
         with file_col2:
-            st.markdown("**🗂️ Mapping Files**")
+            st.markdown("**Mapping Files**")
             mapping_files = [f for f in files if f['file_type'] == 'mapping']
             for file in mapping_files:
                 st.markdown(f"• {file['file_name']}")
                 
         with file_col3:
-            st.markdown("**📋 Business Rules**")
+            st.markdown("**Business Rules**")
             business_rules_files = [f for f in files if f['file_type'] == 'business_rules']
             if business_rules_files:
                 for file in business_rules_files:
@@ -932,7 +928,7 @@ def show_project_dashboard(project_id):
                 st.markdown("• *No business rules uploaded*")
 
     # --- Data Preview ---
-    with st.expander("📊 Data Preview"):
+    with st.expander("Data Preview"):
         if os.path.exists(mapped_path):
             df_mapped = pd.read_csv(mapped_path)
             st.markdown(f"**Showing first 10 rows of {len(df_mapped):,} total records**")
@@ -941,7 +937,7 @@ def show_project_dashboard(project_id):
             # Download button
             with open(mapped_path, "rb") as f:
                 st.download_button(
-                    "📥 Download Complete Dataset",
+                    "Download Complete Dataset",
                     f,
                     file_name="mapped_output.csv",
                     mime="text/csv"
@@ -970,10 +966,10 @@ def show_project_dashboard(project_id):
 
     # --- Business Report ---
     if os.path.exists(pdf_path):
-        st.subheader("📄 Business Report")
+        st.subheader("Business Report")
         with open(pdf_path, "rb") as f:
             st.download_button(
-                "📄 Download Business Summary (PDF)",
+                "Download Business Summary (PDF)",
                 f,
                 file_name="business_summary.pdf",
                 mime="application/pdf"

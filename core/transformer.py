@@ -229,7 +229,7 @@ def fuzzy_match_columns(mapping_df: pd.DataFrame, confidence_threshold: float = 
             column_map[category] = column
             used_columns.add(column)
             fuzzy_type = "RapidFuzz" if RAPIDFUZZ_AVAILABLE else "difflib"
-            print(f"🔍 Fuzzy matched '{category}' → '{column}' (confidence: {score:.2f}, {fuzzy_type})")
+            print(f"Fuzzy matched '{category}' → '{column}' (confidence: {score:.2f}, {fuzzy_type})")
     
     return column_map
 
@@ -240,7 +240,7 @@ def detect_column_mappings(mapping_df: pd.DataFrame) -> dict:
     2. Fall back to fuzzy matching (more robust)
     3. Fall back to user interaction (most reliable)
     """
-    print("🔍 Attempting exact pattern matching...")
+    print("Attempting exact pattern matching...")
     
     # Tier 1: Try exact pattern matching first
     column_map = detect_column_mappings_exact(mapping_df)
@@ -317,7 +317,7 @@ def apply_transformations(df: pd.DataFrame, mapping_df: pd.DataFrame) -> pd.Data
     # Dynamically detect column mappings
     col_map = detect_column_mappings(mapping_df)
     
-    print(f"🔍 Detected column mappings: {col_map}")
+    print(f"Detected column mappings: {col_map}")
     
     # Check if we found the essential columns
     if 'source' not in col_map or 'target' not in col_map:
@@ -439,7 +439,7 @@ Convert the rule to code:"""
             code = llm_parse_conditional(conditional_str, source_series.name or 'source')
             
             if code:
-                print(f"   🎯 Generated code: {code}")
+                print(f"   Generated code: {code}")
                 # Execute the generated code
                 local_env = {"series": source_series, "pd": pd, "np": np}
                 result = eval(code, {}, local_env)
@@ -510,7 +510,7 @@ Convert the rule to code:"""
                 }
                 result = eval(logic_code, {}, local_env)
                 renamed[tgt] = result
-                print(f"🛠️ Transformation applied to '{tgt}' using logic: {logic_code}")
+                print(f"Transformation applied to '{tgt}' using logic: {logic_code}")
             except Exception as e:
                 print(f"⚠️ Error applying transformation for '{tgt}': {e}")
 

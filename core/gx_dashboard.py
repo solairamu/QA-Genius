@@ -37,10 +37,10 @@ def show_rule_compliance_section(base_path):
     col1.metric("Total Rules", total_rules)
     col2.metric("✅ Passed", passed_rules)
     col3.metric("❌ Failed", failed_rules)
-    col4.metric("📊 Avg Score", f"{avg_score:.2f}%")
+    col4.metric("Avg Score", f"{avg_score:.2f}%")
 
     # --- Bar Chart: Rule Compliance by Dimension (Only rule_type counted once)
-    st.markdown("### 📊 Rule Compliance by Dimension")
+    st.markdown("### Rule Compliance by Dimension")
 
     df_rules["Status"] = df_rules["number_of_rows_failed"].apply(lambda x: "Passed" if x == 0 else "Failed")
 
@@ -60,7 +60,7 @@ def show_rule_compliance_section(base_path):
     st.markdown("### 🧩 Overall & Per-Dimension Validation Breakdown")
 
     # 🎯 Overall Validation Donut Chart
-    st.markdown("#### 🎯 Overall Validation Status")
+    st.markdown("#### Overall Validation Status")
     try:
         # Check if this is migration data (has 'total records') or validation data (has 'dimension')
         if 'total records' in df_overall.columns or 'Total Records' in df_overall.columns:
@@ -150,7 +150,7 @@ def show_rule_compliance_section(base_path):
     
     # Debug section - show what rules actually exist
     if not df_rules.empty:
-        with st.expander("🔍 Debug: Available Validation Rules"):
+        with st.expander("Debug: Available Validation Rules"):
             st.write("**Dimensions found in validation data:**")
             available_dimensions = df_rules["dimension"].unique()
             st.write(available_dimensions)
@@ -200,7 +200,7 @@ def show_rule_compliance_section(base_path):
     st.markdown("### 🚨 Red Flag Summary (Failed Rows per Rule & Column)")
     df_failed = df_rules[df_rules["number_of_rows_failed"] > 0]
     available_dimensions = sorted(df_rules["dimension"].dropna().unique())
-    selected_dimensions = st.multiselect("📊 Filter by Dimension", options=available_dimensions, default=available_dimensions)
+    selected_dimensions = st.multiselect("Filter by Dimension", options=available_dimensions, default=available_dimensions)
     filtered_by_dimension = df_failed[df_failed["dimension"].isin(selected_dimensions)]
 
     available_rules = sorted(filtered_by_dimension["friendly_rule_name"].dropna().unique())

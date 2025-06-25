@@ -18,16 +18,16 @@ def load_tab():
     project_description = st.text_area("Project Description", height=100)
 
     st.markdown("### Upload Project Files")
-    src_files = st.file_uploader("📤 Upload Source Files (CSV/XLSX)", type=["csv", "xlsx"], accept_multiple_files=True)
-    mapping_file = st.file_uploader("🗂️ Upload Mapping Specification (CSV/XLSX)", type=["csv", "xlsx"])
-    business_rules_file = st.file_uploader("📋 Upload Business Rules Document (TXT/PDF/DOC/DOCX)", type=["txt", "pdf", "doc", "docx"])
+    src_files = st.file_uploader("Upload Source Files (CSV/XLSX)", type=["csv", "xlsx"], accept_multiple_files=True)
+    mapping_file = st.file_uploader("Upload Mapping Specification (CSV/XLSX)", type=["csv", "xlsx"])
+    business_rules_file = st.file_uploader("Upload Business Rules Document (TXT/PDF/DOC/DOCX)", type=["txt", "pdf", "doc", "docx"])
 
     if st.button("Create Project"):
         if not project_name or not src_files or not mapping_file:
             st.error("❌ Please provide a project name, source files, and a mapping file.")
             return
 
-        # 🔄 Progress bar init
+        # Progress bar init
         progress = st.progress(0, text="Initializing Project Setup...")
 
         # Step 1: Insert project
@@ -37,7 +37,7 @@ def load_tab():
         # Step 2: Clear validation rules
         clear_validation_rules(project_id)
         time.sleep(0.2)
-        progress.progress(15, text="🧹 Clearing Old Rules...")
+        progress.progress(15, text="Clearing Old Rules...")
 
         # Step 3: Create folders
         base_path = f"projects/{project_name.replace(' ', '_')}_{project_id}"

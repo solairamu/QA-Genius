@@ -13,13 +13,13 @@ choice = st.sidebar.radio(
 
 # Check database status and show setup information
 with st.sidebar:
-    st.markdown("### 🗄️ Database Status")
+    st.markdown("### Database Status")
     
     db_status = get_database_status()
     
     if db_status['all_tables_ready']:
         st.success("✅ Database Ready")
-        st.info(f"📊 {len(db_status['tables_exist'])} tables configured")
+        st.info(f"{len(db_status['tables_exist'])} tables configured")
     elif db_status['connection_ok']:
         st.warning("⚠️ Incomplete Setup")
         st.error(f"❌ Missing {len(db_status['missing_tables'])} tables")
