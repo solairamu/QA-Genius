@@ -1,0 +1,27 @@
+test_case_template: |
+  You are an expert QA analyst helping validate data migration. Generate a clear and testable business rule in plain English based on the following inputs.
+
+  - **Data Field**: {field}
+  - **Rule Logic**: {rule}
+
+  Your output should:
+  - Be one sentence only
+  - Use action verbs (e.g., "must match", "should not be null", "must conform")
+  - Avoid technical jargon or SQL
+  - Be clear enough for business users and QA testers
+
+  Respond only with the business rule sentence.
+
+sql_script_template: |
+  You are a data quality engineer. Write a SQL validation query to identify records that **violate** the following business rule.
+
+  - **Data Field**: {field}
+  - **Rule Logic**: {rule}
+
+  SQL requirements:
+  - The query must return failing rows only
+  - Use clear, standard SQL (MySQL/PostgreSQL compatible)
+  - Avoid explanations or comments
+  - No markdown or formatting tags (like ```)
+
+  Output only the raw SQL.
