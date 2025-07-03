@@ -3,64 +3,59 @@ import pandas as pd
 from parser.mapping_parser import parse_mapping_file
 from processor.generate_test_artifacts import generate_test_artifacts
 from utils.file_utils import convert_df_to_download
-from database.db_utils import insert_project  # Optional, for storing project info
+from database.db_utils import insert_project
 
 def show():
-    st.subheader("📁 Upload Project Files")
+    st.subheader(" Upload Project Files")
 
-    # --- Step 1: Project Metadata ---
-    project_name = st.text_input("📝 Project Name")
-    project_desc = st.text_area("📄 Project Description")
+    # --- Reset session state only once ---
+    if "project_setup_visited" not in st.session_state:
+        st.session_state.clear()
+        st.session_state["project_setup_visited"] = True
 
-    if not project_name:
-        st.warning("⚠️ Please enter a project name to proceed.")
-        return
+    # --- Project Info ---
+    project_name = st.text_input("Project Name", key="project_name")
+    project_desc = st.text_area("Project Description", key="project_desc")
 
-    # --- Step 2: File Uploads ---
+    # --- File Upload ---
     st.divider()
-    st.markdown("### 📂 Upload Required Files")
-
+    st.markdown("###  Upload Required File")
     mapping_file = st.file_uploader("Upload Mapping Spec (Excel)", type=["xlsx"], key="mapping")
-    source_file = st.file_uploader("Upload Sample Source Data (optional)", type=["csv"], key="source")
-    target_file = st.file_uploader("Upload Sample Target Data (optional)", type=["csv"], key="target")
 
     if mapping_file:
-        st.success("✅ Mapping file uploaded successfully.")
+        if st.button("Generate Test Artifacts"):
+            if not project_name:
+                st.warning("⚠️ Please enter a project name before generating.")
+                return
 
-        # --- Step 3: Generate Artifacts Button ---
-        if st.button("🚀 Generate Test Artifacts"):
-            with st.spinner("Processing mapping file and generating AI-based test cases and SQL scripts..."):
-
+            with st.spinner("Processing mapping file and generating test artifacts..."):
                 try:
-                    # Parse mapping spec
+                    # ✅ Step 1: Parse mapping spec
                     metadata_df, rule_df = parse_mapping_file(mapping_file)
 
-                    # Optional: Insert project metadata into DB
+                    # ✅ Step 2: Insert project once
                     try:
-                        project_id = insert_project(project_name, project_desc)
-                        st.info("📌 Project metadata saved.")
+                        project_key = insert_project(project_name, project_desc)
+                        st.success(f" Project inserted with ID: {project_key}")
                     except Exception as db_err:
-                        st.warning(f"⚠️ Project info not saved to DB: {db_err}")
+                        st.warning(f"⚠️ Project not saved to DB: {db_err}")
+                        project_key = None
 
-                    # Generate test cases + SQL
-                    final_df = generate_test_artifacts(rule_df, project_id=project_id)
+                    # ✅ Step 3: Generate test artifacts
+                    final_df = generate_test_artifacts(rule_df, project_key=project_key)
 
+                    if final_df.empty:
+                        st.warning("⚠️ No test cases were generated. Check your mapping file.")
+                    else:
+                        st.success(f" {len(final_df)} test artifacts generated.")
+                        st.dataframe(final_df, use_container_width=True)
 
-                    st.success("✅ All test artifacts generated successfully!")
-
-                    # Show preview
-                    st.markdown("### ✅ Preview Generated Artifacts")
-                    st.dataframe(final_df, use_container_width=True)
-
-                    # Download button
-                    st.download_button(
-                        label="⬇️ Download All Test Artifacts (CSV)",
-                        data=convert_df_to_download(final_df),
-                        file_name=f"{project_name}_test_artifacts.csv",
-                        mime="text/csv"
-                    )
+                        # ✅ Optional download
+                        csv_data = convert_df_to_download(final_df)
+                        st.download_button(" Download CSV", csv_data, file_name="test_artifacts.csv")
 
                 except Exception as e:
-                    st.error(f"❌ Error during generation: {e}")
+                    st.error(f"❌ Generation failed: {e}")
+
     else:
-        st.info("📤 Please upload your mapping file to begin.")
+        st.info(" Please upload your mapping file to continue.")

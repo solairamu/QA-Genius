@@ -1,3 +1,6 @@
 mysql-connector-python==9.3.0
 PyYAML==6.0.2
-streamlit 
+streamlit==1.29.0
+pandas==2.1.4
+ollama==0.1.7
+openpyxl==3.1.2 
