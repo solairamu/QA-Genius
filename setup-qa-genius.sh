@@ -330,7 +330,7 @@ install_python_deps() {
     print_info "Verifying critical packages..."
     
     # Test each critical import
-    critical_packages=("mysql.connector" "yaml" "streamlit" "pandas" "ollama" "openpyxl")
+    critical_packages=("mysql.connector" "yaml" "streamlit" "pandas" "ollama" "openpyxl" "xlsxwriter")
     for pkg in "${critical_packages[@]}"; do
         if $PYTHON_CMD -c "import $pkg" 2>/dev/null; then
             print_success "✅ $pkg is available"
@@ -376,6 +376,7 @@ verify_all_modules() {
         "pandas"
         "ollama"
         "openpyxl"
+        "xlsxwriter"
     )
     
     local all_good=true

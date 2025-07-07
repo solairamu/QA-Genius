@@ -8,7 +8,7 @@ def show():
 
     conn = get_connection()
     if not conn:
-        st.error("❌ Could not connect to the database.")
+        st.error(" Could not connect to the database.")
         return
 
     try:
@@ -17,13 +17,13 @@ def show():
         data = cursor.fetchall()
         df = pd.DataFrame(data, columns=["Project Key", "Project Name", "Description", "Created Date"])
     except Exception as e:
-        st.error(f"❌ Failed to fetch data: {e}")
+        st.error(f" Failed to fetch data: {e}")
         return
     finally:
         cursor.close()
         conn.close()
 
     if df.empty:
-        st.warning("⚠️ No project data available.")
+        st.warning(" No project data available.")
     else:
         st.dataframe(df, use_container_width=True)

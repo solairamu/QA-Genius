@@ -9,16 +9,16 @@ def show():
     # --- Step 1: Load all projects ---
     conn = get_connection()
     if not conn:
-        st.error("❌ Could not connect to database.")
+        st.error(" Could not connect to database.")
         return
 
     try:
         project_df = pd.read_sql("SELECT project_key, name FROM projects", conn)
         if project_df.empty:
-            st.warning("⚠️ No projects found.")
+            st.warning(" No projects found.")
             return
     except Exception as e:
-        st.error(f"❌ Failed to load projects: {e}")
+        st.error(f" Failed to load projects: {e}")
         return
     finally:
         conn.close()
@@ -30,14 +30,14 @@ def show():
         format_func=lambda x: f"{x.name} (Project Key: {x.project_key})"
     )
     selected_project_key = selected_row.project_key
-    #st.write("🔍 Selected Project Key:", selected_project_key)
+    #st.write(" Selected Project Key:", selected_project_key)
 
     view_mode = st.radio(" View Mode", [" Table View", " Dropdown View"], horizontal=True)
 
     # --- Load test artifacts ---
     conn = get_connection()
     if not conn:
-        st.error("❌ Could not connect to database.")
+        st.error(" Could not connect to database.")
         return
 
     try:
@@ -81,35 +81,35 @@ def show():
                 st.session_state["show_delete_confirm"] = True
 
         if st.session_state.get("show_delete_confirm"):
-            st.warning("⚠️ Are you sure you want to delete this entire project and all its artifacts?")
+            st.warning(" Are you sure you want to delete this entire project and all its artifacts?")
             confirm_col1, confirm_col2, confirm_col3 = st.columns([5, 1, 1])
 
             with confirm_col2:
-                if st.button("✅ Yes, Delete", key="confirm_delete"):
+                if st.button(" Yes, Delete", key="confirm_delete"):
                     success = delete_project_and_artifacts(selected_project_key)
                     if success:
-                        st.success("✅ Project and artifacts deleted.")
+                        st.success(" Project and artifacts deleted.")
                         st.session_state.clear()
                         st.rerun()
                     else:
-                        st.error("❌ Failed to delete project.")
+                        st.error(" Failed to delete project.")
 
             with confirm_col3:
-                if st.button("❌ Cancel", key="cancel_delete"):
+                if st.button(" Cancel", key="cancel_delete"):
                     st.session_state["show_delete_confirm"] = False
                     st.rerun()
 
         # --- Show results ---
         if df.empty:
-            st.info("ℹ️ No test artifacts found for this project.")
+            st.info(" No test artifacts found for this project.")
         else:
-            st.success(f"✅ {len(df)} test artifacts found.")
+            st.success(f" {len(df)} test artifacts found.")
             if view_mode == " Table View":
                 st.dataframe(df, use_container_width=True)
             else:
                 for _, row in df.iterrows():
                     with st.expander(f"{row['test_case_id']} — {row['test_case_name']}"):
-                        st.markdown("**🧾 Test Case Details:**")
+                        st.markdown("**Test Case Details:**")
                         st.markdown(f"- **Table Name:** `{row['table_name']}`")
                         st.markdown(f"- **Column Name:** `{row['column_name']}`")
                         st.markdown(f"- **Description:** {row['description']}")
@@ -120,6 +120,6 @@ def show():
                         st.markdown(f"- **Requirement ID:** `{row['requirement_id']}`")
 
     except Exception as e:
-        st.error(f"❌ Failed to fetch test artifacts: {e}")
+        st.error(f" Failed to fetch test artifacts: {e}")
     finally:
         conn.close()

@@ -1,27 +1,57 @@
 test_case_template: |
-  You are an expert QA analyst helping validate data migration. Generate a clear and testable business rule in plain English based on the following inputs.
+  You are an expert QA analyst validating data migration in regulated enterprise environments.
 
-  - **Data Field**: {field}
-  - **Rule Logic**: {rule}
+  Your task is to write a clear and concise validation rule in plain business English based on the provided data field and rule logic.
 
-  Your output should:
-  - Be one sentence only
-  - Use action verbs (e.g., "must match", "should not be null", "must conform")
-  - Avoid technical jargon or SQL
-  - Be clear enough for business users and QA testers
+  Input:
+  - Data Field: {field}
+  - Rule Logic: {rule}
 
-  Respond only with the business rule sentence.
+  Instructions:
+  - Write **exactly one sentence** that clearly conveys what the field is for and what condition it must satisfy.
+  - The sentence must describe the business relevance of the field **and** its expected behavior using verbs like: "must be", "must match", "must not be", "should be", or "should conform to".
+  - Do **not** use technical terms, SQL keywords, programming syntax, or abbreviations.
+  - Do **not** add any prefixes like “Business Rule:”, “Explanation:”, bullets, numbering, or headings.
+  - Do **not** add multiple sentences — output must be **one simple English sentence**.
+  - Assume your audience is a non-technical business user or QA stakeholder.
+  - Focus on clarity, readability, and precision — treat this like a formal requirement line.
 
-sql_script_template: |
-  You are a data quality engineer. Write a SQL validation query to identify records that **violate** the following business rule.
+  Output Format:
+  - Just one full sentence, written naturally. No formatting, labels, or extra commentary.
 
-  - **Data Field**: {field}
-  - **Rule Logic**: {rule}
 
-  SQL requirements:
-  - The query must return failing rows only
-  - Use clear, standard SQL (MySQL/PostgreSQL compatible)
-  - Avoid explanations or comments
-  - No markdown or formatting tags (like ```)
 
-  Output only the raw SQL.
+sql_script_template_with_join: |
+  You are a senior data quality engineer responsible for writing clean, MySQL-compatible SQL queries to validate data migration rules.
+
+  Table Metadata:
+  {table_metadata}
+
+  **Input**
+  - Target Table: {table}
+  - Target Field: {field}
+  - Rule Logic: {rule}
+  - Join Condition: {join_condition}
+
+  **Instructions**
+  - Write the SQL using **explicit JOINs** with full `table.column` notation.
+  - Do **not** use table aliases — use full table and column names as provided.
+  - The SQL must return only the records that **violate** the stated rule.
+  - Do **not** include transformation logic unless it's clearly embedded in the rule.
+  - Do **not** include assumptions or inferred filters (like IS NULL or LIKE) unless clearly mentioned.
+  - Output only raw MySQL — no comments, no markdown, no extra explanation.
+
+sql_script_template_simple: |
+  You are a senior data quality engineer responsible for writing clean, MySQL-compatible SQL queries to validate data migration rules.
+
+  **Input**
+  - Target Table: {table}
+  - Target Field: {field}
+  - Rule Logic: {rule}
+
+  **Instructions**
+  - Write a single MySQL query that checks the field for rule violations **without using any JOINs**.
+  - Use exact table and column names — no aliases.
+  - Do not apply transformation logic unless it is directly stated in the rule.
+  - Output only records that **fail** the rule.
+  - No comments, markdown, or explanations — only raw MySQL.

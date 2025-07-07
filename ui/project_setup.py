@@ -25,15 +25,15 @@ def show():
     if mapping_file:
         if st.button("Generate Test Artifacts"):
             if not project_name:
-                st.warning("⚠️ Please enter a project name before generating.")
+                st.warning(" Please enter a project name before generating.")
                 return
 
             with st.spinner("Processing mapping file and generating test artifacts..."):
                 try:
-                    # ✅ Step 1: Parse mapping spec
+                    #  Step 1: Parse mapping spec
                     metadata_df, rule_df = parse_mapping_file(mapping_file)
 
-                    # ✅ Step 2: Insert project once
+                    #  Step 2: Insert project once
                     try:
                         project_key = insert_project(project_name, project_desc)
                         st.success(f" Project inserted with ID: {project_key}")
@@ -41,16 +41,19 @@ def show():
                         st.warning(f"⚠️ Project not saved to DB: {db_err}")
                         project_key = None
 
-                    # ✅ Step 3: Generate test artifacts
-                    final_df = generate_test_artifacts(rule_df, project_key=project_key)
+                    #  Step 3: Generate test artifacts
+                    final_df = generate_test_artifacts(rule_df, metadata_df, project_key=project_key)
 
                     if final_df.empty:
                         st.warning("⚠️ No test cases were generated. Check your mapping file.")
                     else:
                         st.success(f" {len(final_df)} test artifacts generated.")
-                        st.dataframe(final_df, use_container_width=True)
 
-                        # ✅ Optional download
+                        #  Hide SQL script from main table view
+                        display_df = final_df.drop(columns=["test_script_sql"], errors="ignore")
+                        st.dataframe(display_df, use_container_width=True)
+
+                        #  Optional CSV download
                         csv_data = convert_df_to_download(final_df)
                         st.download_button(" Download CSV", csv_data, file_name="test_artifacts.csv")
 

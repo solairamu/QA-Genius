@@ -21,7 +21,7 @@ def parse_mapping_file(excel_file) -> tuple[pd.DataFrame, pd.DataFrame]:
 
         # --- Extract table metadata ---
         if 'table_metadata' not in normalized_sheets:
-            raise ValueError("❌ Missing 'table_metadata' sheet.")
+            raise ValueError(" Missing 'table_metadata' sheet.")
 
         metadata_df = normalized_sheets['table_metadata']
         metadata_df.columns = metadata_df.columns.str.strip()
@@ -33,7 +33,7 @@ def parse_mapping_file(excel_file) -> tuple[pd.DataFrame, pd.DataFrame]:
         }
 
         if not rule_sheets:
-            raise ValueError("❌ No rule sheets found.")
+            raise ValueError(" No rule sheets found.")
 
         rule_df = pd.concat(rule_sheets.values(), ignore_index=True)
         rule_df.columns = rule_df.columns.str.strip()
@@ -41,14 +41,14 @@ def parse_mapping_file(excel_file) -> tuple[pd.DataFrame, pd.DataFrame]:
         # Normalize column names: lowercase, replace spaces with underscores
         rule_df.columns = [col.strip().lower().replace(" ", "_") for col in rule_df.columns]
 
-        # ❌ Strict check: fail if 'expected_field' is found
+        #  Strict check: fail if 'expected_field' is found
         if "expected_field" in rule_df.columns:
-            raise ValueError("❌ Invalid column 'expected_field' found. Use 'expected_behavior' instead.")
+            raise ValueError(" Invalid column 'expected_field' found. Use 'expected_behavior' instead.")
 
-        # ✅ Debug: Print final column list
-        print("✅ Final columns in rule_df:", rule_df.columns.tolist())
+        #  Debug: Print final column list
+        print(" Final columns in rule_df:", rule_df.columns.tolist())
 
         return metadata_df, rule_df
 
     except Exception as e:
-        raise RuntimeError(f"❌ Failed to parse mapping file: {e}")
+        raise RuntimeError(f" Failed to parse mapping file: {e}")
