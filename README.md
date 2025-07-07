@@ -19,7 +19,9 @@ This **single command** will:
 - ✅ Test everything works
 - ✅ Optimize for GPU acceleration
 
-When you **restart your virtual GPU** and get a fresh container:
+## **Virtual GPU**
+
+When you **start a virtual GPU** and get a fresh container:
 
 1. **Copy your QA-Genius code** to the new instance
 2. **Run one command**: `./setup-qa-genius.sh` 
