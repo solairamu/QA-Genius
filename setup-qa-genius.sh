@@ -484,35 +484,142 @@ setup_mysql() {
     # Wait for MySQL to be ready
     sleep 3
     
-    # Check if MySQL is configured with our password
-    if ! mysqladmin ping -h localhost -u root -pKdata@2025 --silent 2>/dev/null; then
-        print_info "Configuring MySQL root password..."
+    # Function to check MySQL authentication method
+    check_mysql_auth() {
+        local auth_plugin=""
+        # Check current authentication plugin for root user
+        auth_plugin=$(mysql -u root -e "SELECT plugin FROM mysql.user WHERE user='root' AND host='localhost';" --skip-column-names 2>/dev/null || echo "unknown")
+        echo "$auth_plugin"
+    }
+    
+    # Function to test MySQL connection with password (using Python mysql.connector)
+    test_mysql_password() {
+        # First check if mysql.connector is available
+        if ! $PYTHON_CMD -c "import mysql.connector" 2>/dev/null; then
+            return 1
+        fi
+        
+        # Test the actual connection
+        $PYTHON_CMD -c "
+import mysql.connector
+try:
+    conn = mysql.connector.connect(host='localhost', user='root', password='Kdata@2025')
+    conn.close()
+    exit(0)
+except:
+    exit(1)
+" 2>/dev/null
+    }
+    
+    # Configure MySQL authentication
+    print_info "Configuring MySQL authentication..."
+    
+    # First, check if password authentication is already working
+    if test_mysql_password; then
+        print_success "✅ MySQL password authentication already configured"
+    else
+        print_info "MySQL password authentication not working, configuring..."
+        
+        # Check current authentication plugin
+        auth_plugin=$(check_mysql_auth)
+        print_info "Current authentication plugin: $auth_plugin"
+        
+        # Try different approaches based on OS and current state
+        configured=false
         
         case $OS_TYPE in
             "debian")
-                # Use sudo to connect as root initially (auth_socket plugin)
-                sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Kdata@2025';" 2>/dev/null || \
-                mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Kdata@2025';" 2>/dev/null || \
-                mysql -u root -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('Kdata@2025');" 2>/dev/null || true
+                # For Debian/Ubuntu, often uses auth_socket initially
+                print_info "Attempting authentication configuration for Debian/Ubuntu..."
+                
+                # Method 1: Try with sudo (for auth_socket)
+                if ! $configured; then
+                    print_info "Trying authentication change with sudo..."
+                    if sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Kdata@2025'; FLUSH PRIVILEGES;" 2>/dev/null; then
+                        print_info "Authentication changed with sudo"
+                        configured=true
+                    fi
+                fi
+                
+                # Method 2: Try without sudo
+                if ! $configured; then
+                    print_info "Trying authentication change without sudo..."
+                    if mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Kdata@2025'; FLUSH PRIVILEGES;" 2>/dev/null; then
+                        print_info "Authentication changed without sudo"
+                        configured=true
+                    fi
+                fi
+                
+                # Method 3: Try mysql_secure_installation approach
+                if ! $configured; then
+                    print_info "Trying mysqladmin approach..."
+                    if mysqladmin -u root password 'Kdata@2025' 2>/dev/null; then
+                        print_info "Password set with mysqladmin"
+                        configured=true
+                    fi
+                fi
                 ;;
+                
             "macos"|"redhat"|"fedora"|"arch")
-                # Try different methods to set password
-                mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'Kdata@2025';" 2>/dev/null || \
-                mysql -u root -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('Kdata@2025');" 2>/dev/null || \
-                mysqladmin -u root password 'Kdata@2025' 2>/dev/null || true
+                print_info "Attempting authentication configuration for $OS_TYPE..."
+                
+                # Method 1: Standard password change
+                if ! $configured; then
+                    print_info "Trying standard password change..."
+                    if mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'Kdata@2025'; FLUSH PRIVILEGES;" 2>/dev/null; then
+                        print_info "Password changed with ALTER USER"
+                        configured=true
+                    fi
+                fi
+                
+                # Method 2: SET PASSWORD (older MySQL versions)
+                if ! $configured; then
+                    print_info "Trying SET PASSWORD approach..."
+                    if mysql -u root -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('Kdata@2025'); FLUSH PRIVILEGES;" 2>/dev/null; then
+                        print_info "Password set with SET PASSWORD"
+                        configured=true
+                    fi
+                fi
+                
+                # Method 3: mysqladmin
+                if ! $configured; then
+                    print_info "Trying mysqladmin approach..."
+                    if mysqladmin -u root password 'Kdata@2025' 2>/dev/null; then
+                        print_info "Password set with mysqladmin"
+                        configured=true
+                    fi
+                fi
                 ;;
         esac
         
-        # Flush privileges
-        mysql -u root -pKdata@2025 -e "FLUSH PRIVILEGES;" 2>/dev/null || \
-        mysql -u root -e "FLUSH PRIVILEGES;" 2>/dev/null || true
+        # Wait a moment for changes to take effect
+        sleep 3
         
-        print_success "✅ MySQL password configured"
+        # Verify the configuration worked with a direct test
+        print_info "Verifying authentication configuration..."
+        
+        # Direct verification test
+        verification_result=$($PYTHON_CMD -c "
+import mysql.connector
+try:
+    conn = mysql.connector.connect(host='localhost', user='root', password='Kdata@2025')
+    conn.close()
+    print('SUCCESS')
+except Exception as e:
+    print(f'FAILED: {e}')
+" 2>/dev/null)
+        
+        if echo "$verification_result" | grep -q "SUCCESS"; then
+            print_success "✅ MySQL password authentication configured successfully"
+        else
+            print_error "❌ Failed to configure MySQL password authentication"
+            print_error "Verification result: $verification_result"
+            print_error "Please check MySQL installation and try running: sudo mysql_secure_installation"
+            exit 1
+        fi
     fi
     
-    print_success "✅ MySQL is running and configured"
-    
-    # Verify Python dependencies before database initialization
+    # Verify Python dependencies before authentication testing
     print_info "Verifying database dependencies..."
     
     # Test database dependencies
@@ -528,26 +635,62 @@ setup_mysql() {
         fi
     fi
     
+    print_success "✅ MySQL is running and configured"
+    
     # Create database and tables
     print_info "Initializing database..."
-    if $PYTHON_CMD -c "
+    
+    # First verify MySQL connection works with our credentials
+    print_info "Testing database connection..."
+    if ! mysql -u root -pKdata@2025 -e "SELECT VERSION();" >/dev/null 2>&1; then
+        print_error "❌ Cannot connect to MySQL with configured credentials"
+        print_error "Please ensure MySQL is running and authentication is properly configured"
+        exit 1
+    fi
+    print_success "✅ Database connection verified"
+    
+    # Initialize database with proper error handling
+    init_result=$($PYTHON_CMD -c "
 import sys
 sys.path.append('.')
 try:
+    import mysql.connector
     from database.db_utils import initialize_database
     initialize_database()
-    print('Database initialized successfully')
+    print('SUCCESS: Database initialized successfully')
 except ImportError as e:
-    print(f'Import error: {e}')
+    print(f'IMPORT_ERROR: {e}')
+    sys.exit(1)
+except mysql.connector.Error as e:
+    print(f'DATABASE_ERROR: {e}')
     sys.exit(1)
 except Exception as e:
-    print(f'Database initialization error: {e}')
+    print(f'GENERAL_ERROR: {e}')
     sys.exit(1)
-"; then
+" 2>&1)
+    
+    init_exit_code=$?
+    
+    if [ $init_exit_code -eq 0 ] && echo "$init_result" | grep -q "SUCCESS:"; then
         print_success "✅ Database initialized successfully"
     else
-        print_error "Failed to initialize database. Please check your Python dependencies."
-        print_info "You can try running: $PIP_CMD install -r requirements.txt"
+        print_error "❌ Failed to initialize database"
+        
+        # Provide specific error guidance based on the error type
+        if echo "$init_result" | grep -q "IMPORT_ERROR:"; then
+            print_error "Python import error detected:"
+            echo "$init_result" | grep "IMPORT_ERROR:" | sed 's/IMPORT_ERROR: //'
+            print_info "Try running: $PIP_CMD install -r requirements.txt"
+        elif echo "$init_result" | grep -q "DATABASE_ERROR:"; then
+            print_error "Database connection error detected:"
+            echo "$init_result" | grep "DATABASE_ERROR:" | sed 's/DATABASE_ERROR: //'
+            print_info "Check MySQL service status and authentication configuration"
+        else
+            print_error "General error:"
+            echo "$init_result"
+        fi
+        
+        print_info "You can try running the setup script again or check the logs for more details"
         exit 1
     fi
 }
