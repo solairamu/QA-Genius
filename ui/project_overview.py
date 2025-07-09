@@ -4,7 +4,7 @@ import os
 def show():
     # --- Logo Banner ---
     local_logo_path = "images/Full logo-KData.png"
-    fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
+    #fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
     logo_width = 300
     
     # Check local images folder first, then fallback path
