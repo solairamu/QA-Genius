@@ -41,7 +41,7 @@ def get_base64_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-logo_base64 = get_base64_image("C:/codes/teststreamlit/KData_logo/Only logo.png")
+logo_base64 = get_base64_image("images/Only logo.png")
 
 # --- Render Logo outside sidebar, pinned to bottom-left ---
 st.markdown(
