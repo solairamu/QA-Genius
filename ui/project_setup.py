@@ -53,13 +53,13 @@ def show():
     st.markdown("### 📂 Upload Required Files")
 
     # --- Template Downloads ---
-    mapping_template_path = Path("C:/codes/teststreamlit/qa_version_3/templates/mapping_spec_template.xlsx")
+    mapping_template_path = Path("templates/mapping_spec_template.xlsx")
     if mapping_template_path.exists():
         try:
             with open(mapping_template_path, "rb") as f:
                 st.download_button(
                     label="📥 Download Mapping Template",
-                    data=f,
+                    data=f.read(),
                     file_name="mapping_template.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
@@ -67,13 +67,13 @@ def show():
             # Silently skip template if there's any error reading it
             pass
 
-    brd_template_path = Path("C:/codes/teststreamlit/qa_version_3/templates/Business_Requirements_Template.docx")
+    brd_template_path = Path("templates/Business_Requirements_Template.docx")
     if brd_template_path.exists():
         try:
             with open(brd_template_path, "rb") as f:
                 st.download_button(
                     label="📥 Download BRD Template",
-                    data=f,
+                    data=f.read(),
                     file_name="brd_template.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
@@ -96,7 +96,7 @@ def show():
                 try:
                     # Step 1: Create project folder
                     clean_project_name = project_name.replace(" ", "_")
-                    project_folder = Path("uploaded_files") / clean_project_name
+                    project_folder = Path("uploads") / clean_project_name
                     project_folder.mkdir(parents=True, exist_ok=True)
 
                     # Step 2: Save mapping file
@@ -116,13 +116,17 @@ def show():
                     # Step 4: Parse mapping spec
                     metadata_df, rule_df = parse_mapping_file(mapping_file)
 
-                    # Step 5: Insert project record with file names only
+                    # Step 5: Insert project record with relative file paths for cross-platform compatibility
                     try:
+                        # Store relative paths in database for cross-platform compatibility
+                        relative_mapping_path = f"uploads/{clean_project_name}/{mapping_filename}"
+                        relative_brd_path = f"uploads/{clean_project_name}/{brd_filename}" if brd_filename else None
+                        
                         project_key = insert_project(
                             project_name,
                             project_desc,
-                            str(project_folder / mapping_filename),
-                            str(project_folder / brd_filename) if brd_filename else None
+                            relative_mapping_path,
+                            relative_brd_path
                         )
                         st.success(f"✅ Project inserted with ID: {project_key}")
                     except Exception as db_err:
