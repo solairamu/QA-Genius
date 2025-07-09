@@ -38,17 +38,28 @@ selected_tab = st.sidebar.radio(
 )
 
 # --- Base64 Encode Logo ---
-def get_base64_image(path):
-    if os.path.exists(path):
+def get_base64_image(local_path, fallback_path):
+    # First try local images folder
+    if os.path.exists(local_path):
         try:
-            with open(path, "rb") as f:
+            with open(local_path, "rb") as f:
                 return base64.b64encode(f.read()).decode()
         except Exception:
-            return None
+            pass
+    
+    # Then try original hardcoded path
+    if os.path.exists(fallback_path):
+        try:
+            with open(fallback_path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+        except Exception:
+            pass
+    
     return None
 
-logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
-logo_base64 = get_base64_image(logo_path)
+local_logo_path = "images/Only logo.png"
+fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
+logo_base64 = get_base64_image(local_logo_path, fallback_logo_path)
 
 # --- Render Logo outside sidebar, pinned to bottom-left ---
 if logo_base64:

@@ -3,11 +3,19 @@ import os
 
 def show():
     # --- Logo Banner ---
-    logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
+    local_logo_path = "images/Full logo-KData.png"
+    fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
     logo_width = 300
     
-    # Only display logo if the file exists
-    if os.path.exists(logo_path):
+    # Check local images folder first, then fallback path
+    logo_path = None
+    if os.path.exists(local_logo_path):
+        logo_path = local_logo_path
+    elif os.path.exists(fallback_logo_path):
+        logo_path = fallback_logo_path
+    
+    # Only display logo if found in either location
+    if logo_path:
         try:
             st.image(logo_path, width=logo_width)
             st.markdown("<hr style='margin-top:-10px; margin-bottom: 30px;'>", unsafe_allow_html=True)

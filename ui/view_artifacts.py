@@ -7,10 +7,18 @@ import os
 
 def show():
     # --- Logo ---
-    logo_path = "C:/codes/teststreamlit/KData_logo/Name & tag Only.png"
+    local_logo_path = "images/Name & tag only.png"  # Note: using actual filename from images folder
+    fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Name & tag Only.png"
     
-    # Only display logo if the file exists
-    if os.path.exists(logo_path):
+    # Check local images folder first, then fallback path
+    logo_path = None
+    if os.path.exists(local_logo_path):
+        logo_path = local_logo_path
+    elif os.path.exists(fallback_logo_path):
+        logo_path = fallback_logo_path
+    
+    # Only display logo if found in either location
+    if logo_path:
         try:
             with open(logo_path, "rb") as f:
                 encoded_logo = base64.b64encode(f.read()).decode()
