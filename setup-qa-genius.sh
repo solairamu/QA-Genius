@@ -703,6 +703,71 @@ except Exception as e:
     fi
 }
 
+# Detect GPU and configure optimal settings
+detect_gpu_config() {
+    print_info "🔍 Detecting GPU configuration..."
+    
+    GPU_LAYERS=0
+    GPU_TYPE="CPU"
+    
+    # Check for NVIDIA GPU
+    if command -v nvidia-smi &> /dev/null; then
+        VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')
+        if [[ -n "$VRAM_MB" && "$VRAM_MB" -gt 1000 ]]; then
+            GPU_TYPE="NVIDIA"
+            # Set GPU layers based on available VRAM
+            if [[ "$VRAM_MB" -ge 40000 ]]; then
+                GPU_LAYERS=999  # High-end GPU (like your H200)
+                print_success "✅ High-end NVIDIA GPU detected (${VRAM_MB}MB VRAM) - Using full GPU acceleration"
+            elif [[ "$VRAM_MB" -ge 16000 ]]; then
+                GPU_LAYERS=65   # Mid-range GPU
+                print_success "✅ Mid-range NVIDIA GPU detected (${VRAM_MB}MB VRAM) - Using 65 GPU layers"
+            elif [[ "$VRAM_MB" -ge 8000 ]]; then
+                GPU_LAYERS=35   # Lower mid-range GPU
+                print_success "✅ NVIDIA GPU detected (${VRAM_MB}MB VRAM) - Using 35 GPU layers"
+            elif [[ "$VRAM_MB" -ge 4000 ]]; then
+                GPU_LAYERS=20   # Budget GPU
+                print_success "✅ Budget NVIDIA GPU detected (${VRAM_MB}MB VRAM) - Using 20 GPU layers"
+            else
+                GPU_LAYERS=10   # Very weak GPU
+                print_success "✅ Low-end NVIDIA GPU detected (${VRAM_MB}MB VRAM) - Using 10 GPU layers"
+            fi
+        fi
+    fi
+    
+    # Check for AMD GPU (basic support)
+    if [[ "$GPU_LAYERS" -eq 0 ]] && command -v rocm-smi &> /dev/null; then
+        if rocm-smi --showmeminfo vram 2>/dev/null | grep -q "VRAM"; then
+            GPU_TYPE="AMD"
+            GPU_LAYERS=32  # Conservative setting for AMD
+            print_success "✅ AMD GPU detected - Using 32 GPU layers"
+        fi
+    fi
+    
+    # Check for Apple Silicon (M1/M2/M3)
+    if [[ "$GPU_LAYERS" -eq 0 ]] && [[ "$OS_TYPE" == "macos" ]]; then
+        APPLE_CHIP=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "")
+        if echo "$APPLE_CHIP" | grep -q "Apple"; then
+            GPU_TYPE="Apple Silicon"
+            GPU_LAYERS=999  # Apple Silicon has unified memory
+            print_success "✅ Apple Silicon detected - Using GPU acceleration"
+        fi
+    fi
+    
+    # Fallback to CPU
+    if [[ "$GPU_LAYERS" -eq 0 ]]; then
+        GPU_TYPE="CPU"
+        print_warning "⚠️  No compatible GPU detected - Using CPU only"
+        print_info "   For GPU acceleration, ensure you have:"
+        print_info "   - NVIDIA GPU with drivers installed"
+        print_info "   - AMD GPU with ROCm (Linux)"
+        print_info "   - Apple Silicon (macOS)"
+    fi
+    
+    export OLLAMA_GPU_LAYERS=$GPU_LAYERS
+    print_info "🎯 GPU Configuration: $GPU_TYPE (Layers: $GPU_LAYERS)"
+}
+
 # Install and setup Ollama
 setup_ollama() {
     print_info "🤖 Setting up Ollama..."
@@ -716,9 +781,11 @@ setup_ollama() {
         print_success "✅ Ollama already installed"
     fi
     
-    # Start Ollama service with GPU acceleration
-    print_info "Starting Ollama service with GPU acceleration..."
-    export OLLAMA_GPU_LAYERS=999
+    # Detect and configure GPU settings
+    detect_gpu_config
+    
+    # Start Ollama service with optimal GPU acceleration
+    print_info "Starting Ollama service with optimal GPU configuration..."
     ollama serve &
     OLLAMA_PID=$!
     sleep 5
@@ -734,6 +801,19 @@ setup_ollama() {
         print_success "✅ Model '$MODEL_NAME' downloaded"
     else
         print_success "✅ Model '$MODEL_NAME' already available"
+    fi
+    
+    # Show GPU usage after model load
+    if [[ "$GPU_TYPE" == "NVIDIA" ]] && command -v nvidia-smi &> /dev/null; then
+        print_info "🔍 Current GPU usage:"
+        nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | while read line; do
+            used=$(echo "$line" | cut -d',' -f1 | tr -d ' ')
+            total=$(echo "$line" | cut -d',' -f2 | tr -d ' ')
+            if [[ "$total" -gt 0 ]]; then
+                usage_percent=$((used * 100 / total))
+                print_info "   GPU Memory: ${used}MB / ${total}MB (${usage_percent}% used)"
+            fi
+        done
     fi
 }
 
@@ -783,9 +863,9 @@ setup_aliases() {
     cat >> "$SHELL_CONFIG" << EOF
 
 # QA-Genius aliases
-alias qa-start="cd $CURRENT_DIR && export DB_HOST=localhost && export DB_USER=root && export DB_PASSWORD=Kdata@2025 && export DB_NAME=qa_genius_v3 && export DB_ROOT_PASSWORD=Kdata@2025 && export OLLAMA_GPU_LAYERS=999 && (pgrep -f 'ollama serve' > /dev/null || ollama serve &) && sleep 3 && python3 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &"
+alias qa-start="cd $CURRENT_DIR && $CURRENT_DIR/setup-qa-genius.sh --start-only"
 alias qa-stop="echo '🛑 Stopping QA-Genius services...'; pkill -f streamlit 2>/dev/null || true; pkill -f 'streamlit run' 2>/dev/null || true; pkill -f app.py 2>/dev/null || true; echo '  ✅ Streamlit stopped'; pkill -f 'ollama serve' 2>/dev/null || true; killall ollama 2>/dev/null || true; osascript -e 'quit app \"Ollama\"' 2>/dev/null || true; echo '  ✅ Ollama stopped'; echo '🎯 All QA-Genius services stopped'"
-alias qa-status="echo \"🔍 Checking QA-Genius status...\"; ps aux | grep -E \"(streamlit|ollama)\" | grep -v grep; echo; echo \"📱 Streamlit:\"; curl -s http://localhost:8501 | grep -o \"<title>.*</title>\" || echo \"Not responding\"; echo \"🤖 Ollama:\"; curl -s http://localhost:11434/api/tags | head -c 50 || echo \"Not responding\""
+alias qa-status="echo \"🔍 Checking QA-Genius status...\"; ps aux | grep -E \"(streamlit|ollama)\" | grep -v grep; echo; echo \"📱 Streamlit:\"; curl -s http://localhost:8501 | grep -o \"<title>.*</title>\" || echo \"Not responding\"; echo \"🤖 Ollama:\"; curl -s http://localhost:11434/api/tags | head -c 50 || echo \"Not responding\"; if command -v nvidia-smi &> /dev/null; then echo \"🎯 GPU Status:\"; nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | head -1; fi"
 alias qa-setup="$CURRENT_DIR/setup-qa-genius.sh"
 EOF
 
@@ -794,9 +874,9 @@ EOF
         cat >> "$SHELL_CONFIG2" << EOF
 
 # QA-Genius aliases
-alias qa-start="cd $CURRENT_DIR && export DB_HOST=localhost && export DB_USER=root && export DB_PASSWORD=Kdata@2025 && export DB_NAME=qa_genius_v3 && export DB_ROOT_PASSWORD=Kdata@2025 && export OLLAMA_GPU_LAYERS=999 && (pgrep -f 'ollama serve' > /dev/null || ollama serve &) && sleep 3 && python3 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &"
+alias qa-start="cd $CURRENT_DIR && $CURRENT_DIR/setup-qa-genius.sh --start-only"
 alias qa-stop="echo '🛑 Stopping QA-Genius services...'; pkill -f streamlit 2>/dev/null || true; pkill -f 'streamlit run' 2>/dev/null || true; pkill -f app.py 2>/dev/null || true; echo '  ✅ Streamlit stopped'; pkill -f 'ollama serve' 2>/dev/null || true; killall ollama 2>/dev/null || true; osascript -e 'quit app \"Ollama\"' 2>/dev/null || true; echo '  ✅ Ollama stopped'; echo '🎯 All QA-Genius services stopped'"
-alias qa-status="echo \"🔍 Checking QA-Genius status...\"; ps aux | grep -E \"(streamlit|ollama)\" | grep -v grep; echo; echo \"📱 Streamlit:\"; curl -s http://localhost:8501 | grep -o \"<title>.*</title>\" || echo \"Not responding\"; echo \"🤖 Ollama:\"; curl -s http://localhost:11434/api/tags | head -c 50 || echo \"Not responding\""
+alias qa-status="echo \"🔍 Checking QA-Genius status...\"; ps aux | grep -E \"(streamlit|ollama)\" | grep -v grep; echo; echo \"📱 Streamlit:\"; curl -s http://localhost:8501 | grep -o \"<title>.*</title>\" || echo \"Not responding\"; echo \"🤖 Ollama:\"; curl -s http://localhost:11434/api/tags | head -c 50 || echo \"Not responding\"; if command -v nvidia-smi &> /dev/null; then echo \"🎯 GPU Status:\"; nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | head -1; fi"
 alias qa-setup="$CURRENT_DIR/setup-qa-genius.sh"
 EOF
     fi
@@ -805,7 +885,54 @@ EOF
     print_info "Aliases added to $SHELL_CONFIG"
 }
 
-# Start services
+# Start services only (used by qa-start alias)
+start_services_only() {
+    print_info "🚀 Starting QA-Genius services..."
+    
+    # Stop any existing services first
+    print_info "Stopping any existing services..."
+    pkill -f streamlit 2>/dev/null || true
+    pkill -f "ollama serve" 2>/dev/null || true
+    sleep 2
+    
+    # Set environment variables
+    export DB_HOST=localhost
+    export DB_USER=root
+    export DB_PASSWORD=Kdata@2025
+    export DB_NAME=qa_genius_v3
+    export DB_ROOT_PASSWORD=Kdata@2025
+    
+    # Detect and configure GPU settings
+    detect_gpu_config
+    
+    # Start Ollama with optimal GPU configuration
+    print_info "Starting Ollama service with optimal GPU configuration..."
+    ollama serve &
+    sleep 5
+    
+    # Start Streamlit
+    print_info "Starting Streamlit application..."
+    $PYTHON_CMD -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &
+    sleep 3
+    
+    print_success "✅ Services started successfully with GPU config: $GPU_TYPE (Layers: $OLLAMA_GPU_LAYERS)"
+    print_info "📱 Access QA-Genius at: http://localhost:8501"
+    
+    # Show current GPU usage if NVIDIA
+    if [[ "$GPU_TYPE" == "NVIDIA" ]] && command -v nvidia-smi &> /dev/null; then
+        print_info "🔍 Current GPU usage:"
+        nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | while read line; do
+            used=$(echo "$line" | cut -d',' -f1 | tr -d ' ')
+            total=$(echo "$line" | cut -d',' -f2 | tr -d ' ')
+            if [[ "$total" -gt 0 ]]; then
+                usage_percent=$((used * 100 / total))
+                print_info "   GPU Memory: ${used}MB / ${total}MB (${usage_percent}% used)"
+            fi
+        done
+    fi
+}
+
+# Start services (full setup context)
 start_services() {
     print_info "🚀 Starting QA-Genius services..."
     
@@ -821,8 +948,7 @@ start_services() {
     export DB_NAME=qa_genius_v3
     export DB_ROOT_PASSWORD=Kdata@2025
     
-    # Start Ollama with GPU acceleration (if not already running)
-    export OLLAMA_GPU_LAYERS=999
+    # Start Ollama with optimal GPU acceleration (if not already running)
     if ! pgrep -f "ollama serve" > /dev/null; then
         print_info "Starting Ollama service..."
         ollama serve &
@@ -957,6 +1083,20 @@ stop_qa_services() {
 
 # Main execution
 main() {
+    # Handle command line arguments
+    if [[ "$1" == "--start-only" ]]; then
+        # Quick start mode for qa-start alias
+        print_header
+        print_info "🚀 Quick start mode - Starting QA-Genius with optimal GPU configuration..."
+        
+        # Setup Python commands for compatibility
+        setup_python_commands
+        
+        # Start services with GPU detection
+        start_services_only
+        return 0
+    fi
+    
     print_header
     
     print_info "Starting complete QA-Genius setup..."
