@@ -7,35 +7,21 @@ import base64
 
 def show():
     # --- Logo as Top-Right Banner (smaller + aligned) ---
-    local_logo_path = "images/Full logo-KData.png"  # Note: using actual filename from images folder
-    #fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
-    
-    # Check local images folder first, then fallback path
-    logo_path = None
-    if os.path.exists(local_logo_path):
-        logo_path = local_logo_path
-    elif os.path.exists(fallback_logo_path):
-        logo_path = fallback_logo_path
-    
-    # Only display logo if found in either location
-    if logo_path:
-        try:
-            with open(logo_path, "rb") as f:
-                encoded_logo = base64.b64encode(f.read()).decode()
+   # logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
+    logo_path = "Images/Only logo.png"
+    with open(logo_path, "rb") as f:
+        encoded_logo = base64.b64encode(f.read()).decode()
 
-            st.markdown(
-                f"""
-                <div style="display: flex; justify-content: flex-end;">
-                    <img src="data:image/png;base64,{encoded_logo}" width="180">
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        except Exception:
-            # Silently skip logo if there's any error reading it
-            pass
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: flex-end;">
+            <img src="data:image/png;base64,{encoded_logo}" width="70">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.subheader(" Project Records 📋")
+    st.subheader(" Project Inputs 📋")
 
     # --- Setup session state for previews ---
     if "view_mapping_row" not in st.session_state:

@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import base64
-import os
 from pathlib import Path
 from parser.mapping_parser import parse_mapping_file
 from processor.generate_test_artifacts import generate_test_artifacts
@@ -10,34 +9,20 @@ from utils.file_utils import convert_df_to_download
 
 def show():
     # --- Logo Display ---
-    local_logo_path = "images/Full logo-KData.png"  # Note: using actual filename from images folder
-    #fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
+    #logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
+    logo_path = "Images/Only logo.png"
+    with open(logo_path, "rb") as f:
+        encoded_logo = base64.b64encode(f.read()).decode()
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: flex-end;">
+            <img src="data:image/png;base64,{encoded_logo}" width="70">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # Check local images folder first, then fallback path
-    logo_path = None
-    if os.path.exists(local_logo_path):
-        logo_path = local_logo_path
-    elif os.path.exists(fallback_logo_path):
-        logo_path = fallback_logo_path
-    
-    # Only display logo if found in either location
-    if logo_path:
-        try:
-            with open(logo_path, "rb") as f:
-                encoded_logo = base64.b64encode(f.read()).decode()
-            st.markdown(
-                f"""
-                <div style="display: flex; justify-content: flex-end;">
-                    <img src="data:image/png;base64,{encoded_logo}" width="180">
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        except Exception:
-            # Silently skip logo if there's any error reading it
-            pass
-
-    st.subheader(" Create Project ➕")
+    st.subheader(" Add New Project ➕")
 
     # --- Reset session state only once ---
     if "project_setup_visited" not in st.session_state:

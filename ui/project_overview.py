@@ -1,33 +1,21 @@
 import streamlit as st
-import os
+import base64
 
 def show():
-    # --- Logo Banner ---
-    local_logo_path = "images/Full logo-KData.png"
-    #fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
-    logo_width = 300
-    
-    # Check local images folder first, then fallback path
-    logo_path = None
-    if os.path.exists(local_logo_path):
-        logo_path = local_logo_path
-    elif os.path.exists(fallback_logo_path):
-        logo_path = fallback_logo_path
-    
-    # Only display logo if found in either location
-    if logo_path:
-        try:
-            st.image(logo_path, width=logo_width)
-            st.markdown("<hr style='margin-top:-10px; margin-bottom: 30px;'>", unsafe_allow_html=True)
-        except Exception:
-            # Silently skip logo if there's any error loading it
-            pass
-    else:
-        # Add a small spacing if no logo is displayed
-        st.markdown("<br>", unsafe_allow_html=True)
+    # --- Centered Brand Header with subtle indent on subtext ---
+    st.markdown(
+        """
+        <div style='text-align: center; margin-bottom: 10px; line-height: 1.2;'>
+            <div style='font-size: 48px; font-weight: bold; color: #222;'>i-QA</div>
+            <div style='font-size: 20px; color: #777; margin-top: 4px; padding-left: 150px;'>by KData</div>
+        </div>
+        <hr style='margin-top: -5px; margin-bottom: 30px; border: 1px solid #ccc;'>
+        """,
+        unsafe_allow_html=True
+    )
 
     # --- Title ---
-    st.subheader("Intelligent QA: Offline AI Engine for Systematic, Standards-Based Data Quality Testing")
+    st.subheader("Intelligent QA (i-QA): Offline AI Engine for Systematic, Standards-Based Data Quality Testing")
 
     # --- Updated Product Description ---
     st.markdown("""
@@ -56,4 +44,75 @@ QA Genius ensures systematic coverage across every data quality pillar—not jus
     # --- Architecture Placeholder ---
     st.markdown("---")
     st.markdown("### 🧱 Architecture")
-    st.info("Architecture diagram will be uploaded soon.")
+
+   # architecture_path = "C:/Users/User/Downloads/Arch Diagram.png"
+    architecture_path = "Images/Arch Diagram.png"
+    try:
+        #  Fix extra spacing above/below the image
+        st.markdown("""
+            <style>
+                h3 {
+                    margin-bottom: 0rem !important;
+                }
+                img {
+                    margin-top: -20px !important;
+                    margin-bottom: -20px !important;
+                    display: block;
+                }
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
+        st.image(architecture_path)
+
+    except Exception as e:
+        st.warning(f"Could not load architecture image: {e}")
+
+    # --- Tool Requirements Table ---
+    st.markdown("---")
+    st.markdown("### 🛠️ Tool Requirements")
+
+    requirements_table = """
+    <style>
+        .center-table-wrapper {
+            display: flex;
+            justify-content: center;
+        }
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            vertical-align: middle;
+            text-align: center;
+        }
+        thead th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            text-align: center !important;
+        }
+    </style>
+
+    <div class="center-table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: center;">Specification</th>
+                    <th style="text-align: center;">Ideal</th>
+                    <th style="text-align: center;">Minimum</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Response Time</td><td>~20 sec</td><td>~8–10 Minutes</td></tr>
+                <tr><td>RAM</td><td>32 GB</td><td>16 GB</td></tr>
+                <tr><td>GPU</td><td>NVIDIA RTX 5090</td><td>Integrated Graphics Card</td></tr>
+                <tr><td>vRAM</td><td>32 GB</td><td>4 GB</td></tr>
+                <tr><td>Disk Space</td><td>20 GB</td><td>10–20 GB Free</td></tr>
+            </tbody>
+        </table>
+    </div>
+    """
+    st.markdown(requirements_table, unsafe_allow_html=True)

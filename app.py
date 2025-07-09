@@ -34,10 +34,10 @@ st.markdown("""
 selected_tab = st.sidebar.radio(
     label="",
     options=[
-        " Home",
-        " Project Setup",
-        " View Projects",
-        " View Artifacts"
+        " About i-QA",
+        " Add New Project",
+        " View Project Input",
+        " View Project Output"
     ]
 )
 
@@ -46,24 +46,25 @@ def get_base64_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-logo_base64 = get_base64_image("images/Only logo.png")
+#logo_base64 = get_base64_image("C:/codes/teststreamlit/KData_logo/Full Logo-KData.png")
+logo_base64 = get_base64_image("Images/Full Logo-KData.png")
 
 # --- Render Logo outside sidebar, pinned to bottom-left ---
 st.markdown(
     f"""
     <div id="bottom-kdata-logo">
-        <img src="data:image/png;base64,{logo_base64}" width="80">
+        <img src="data:image/png;base64,{logo_base64}" width="150">
     </div>
     """,
     unsafe_allow_html=True
 )
 
 # --- Tab Routing ---
-if selected_tab == " Home":
+if selected_tab == " About i-QA":
     project_overview.show()
-elif selected_tab == " Project Setup":
+elif selected_tab == " Add New Project":
     project_setup.show()
-elif selected_tab == " View Projects":
+elif selected_tab == " View Project Input":
     view_projects.show()
-elif selected_tab == " View Artifacts":
+elif selected_tab == " View Project Output":
     view_artifacts.show()
