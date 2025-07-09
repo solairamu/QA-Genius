@@ -330,7 +330,7 @@ install_python_deps() {
     print_info "Verifying critical packages..."
     
     # Test each critical import
-    critical_packages=("mysql.connector" "yaml" "streamlit" "pandas" "ollama" "openpyxl" "xlsxwriter")
+    critical_packages=("mysql.connector" "yaml" "streamlit" "pandas" "ollama" "openpyxl" "xlsxwriter" "docx")
     for pkg in "${critical_packages[@]}"; do
         if $PYTHON_CMD -c "import $pkg" 2>/dev/null; then
             print_success "✅ $pkg is available"
@@ -345,6 +345,10 @@ install_python_deps() {
                 "yaml")
                     print_info "Attempting to install PyYAML..."
                     $PIP_CMD install PyYAML --user 2>/dev/null || $PIP_CMD install PyYAML
+                    ;;
+                "docx")
+                    print_info "Attempting to install python-docx..."
+                    $PIP_CMD install python-docx --user 2>/dev/null || $PIP_CMD install python-docx
                     ;;
                 *)
                     print_info "Attempting to install $pkg..."
@@ -377,6 +381,7 @@ verify_all_modules() {
         "ollama"
         "openpyxl"
         "xlsxwriter"
+        "docx"
     )
     
     local all_good=true
@@ -405,6 +410,9 @@ verify_all_modules() {
                         ;;
                     "yaml")
                         $PIP_CMD install PyYAML --user 2>/dev/null || $PIP_CMD install PyYAML
+                        ;;
+                    "docx")
+                        $PIP_CMD install python-docx --user 2>/dev/null || $PIP_CMD install python-docx
                         ;;
                     *)
                         $PIP_CMD install "$module" --user 2>/dev/null || $PIP_CMD install "$module"
@@ -743,7 +751,7 @@ setup_environment() {
     export DB_HOST=localhost
     export DB_USER=root
     export DB_PASSWORD=Kdata@2025
-    export DB_NAME=qa_genius
+    export DB_NAME=qa_genius_v3
     export DB_ROOT_PASSWORD=Kdata@2025
     
     print_success "✅ Environment configured"
@@ -775,7 +783,7 @@ setup_aliases() {
     cat >> "$SHELL_CONFIG" << EOF
 
 # QA-Genius aliases
-alias qa-start="cd $CURRENT_DIR && export DB_HOST=localhost && export DB_USER=root && export DB_PASSWORD=Kdata@2025 && export DB_NAME=qa_genius && export DB_ROOT_PASSWORD=Kdata@2025 && export OLLAMA_GPU_LAYERS=999 && (pgrep -f 'ollama serve' > /dev/null || ollama serve &) && sleep 3 && python3 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &"
+alias qa-start="cd $CURRENT_DIR && export DB_HOST=localhost && export DB_USER=root && export DB_PASSWORD=Kdata@2025 && export DB_NAME=qa_genius_v3 && export DB_ROOT_PASSWORD=Kdata@2025 && export OLLAMA_GPU_LAYERS=999 && (pgrep -f 'ollama serve' > /dev/null || ollama serve &) && sleep 3 && python3 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &"
 alias qa-stop="echo '🛑 Stopping QA-Genius services...'; pkill -f streamlit 2>/dev/null || true; pkill -f 'streamlit run' 2>/dev/null || true; pkill -f app.py 2>/dev/null || true; echo '  ✅ Streamlit stopped'; pkill -f 'ollama serve' 2>/dev/null || true; killall ollama 2>/dev/null || true; osascript -e 'quit app \"Ollama\"' 2>/dev/null || true; echo '  ✅ Ollama stopped'; echo '🎯 All QA-Genius services stopped'"
 alias qa-status="echo \"🔍 Checking QA-Genius status...\"; ps aux | grep -E \"(streamlit|ollama)\" | grep -v grep; echo; echo \"📱 Streamlit:\"; curl -s http://localhost:8501 | grep -o \"<title>.*</title>\" || echo \"Not responding\"; echo \"🤖 Ollama:\"; curl -s http://localhost:11434/api/tags | head -c 50 || echo \"Not responding\""
 alias qa-setup="$CURRENT_DIR/setup-qa-genius.sh"
@@ -786,7 +794,7 @@ EOF
         cat >> "$SHELL_CONFIG2" << EOF
 
 # QA-Genius aliases
-alias qa-start="cd $CURRENT_DIR && export DB_HOST=localhost && export DB_USER=root && export DB_PASSWORD=Kdata@2025 && export DB_NAME=qa_genius && export DB_ROOT_PASSWORD=Kdata@2025 && export OLLAMA_GPU_LAYERS=999 && (pgrep -f 'ollama serve' > /dev/null || ollama serve &) && sleep 3 && python3 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &"
+alias qa-start="cd $CURRENT_DIR && export DB_HOST=localhost && export DB_USER=root && export DB_PASSWORD=Kdata@2025 && export DB_NAME=qa_genius_v3 && export DB_ROOT_PASSWORD=Kdata@2025 && export OLLAMA_GPU_LAYERS=999 && (pgrep -f 'ollama serve' > /dev/null || ollama serve &) && sleep 3 && python3 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &"
 alias qa-stop="echo '🛑 Stopping QA-Genius services...'; pkill -f streamlit 2>/dev/null || true; pkill -f 'streamlit run' 2>/dev/null || true; pkill -f app.py 2>/dev/null || true; echo '  ✅ Streamlit stopped'; pkill -f 'ollama serve' 2>/dev/null || true; killall ollama 2>/dev/null || true; osascript -e 'quit app \"Ollama\"' 2>/dev/null || true; echo '  ✅ Ollama stopped'; echo '🎯 All QA-Genius services stopped'"
 alias qa-status="echo \"🔍 Checking QA-Genius status...\"; ps aux | grep -E \"(streamlit|ollama)\" | grep -v grep; echo; echo \"📱 Streamlit:\"; curl -s http://localhost:8501 | grep -o \"<title>.*</title>\" || echo \"Not responding\"; echo \"🤖 Ollama:\"; curl -s http://localhost:11434/api/tags | head -c 50 || echo \"Not responding\""
 alias qa-setup="$CURRENT_DIR/setup-qa-genius.sh"
@@ -810,7 +818,7 @@ start_services() {
     export DB_HOST=localhost
     export DB_USER=root
     export DB_PASSWORD=Kdata@2025
-    export DB_NAME=qa_genius
+    export DB_NAME=qa_genius_v3
     export DB_ROOT_PASSWORD=Kdata@2025
     
     # Start Ollama with GPU acceleration (if not already running)

@@ -7,17 +7,18 @@ MODEL_NAME = "mistral:7b-instruct-q4_0"
 TEMPERATURE = 0.2
 MAX_TOKENS = 500
 
+# Configure logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def ask_llm(prompt: str, expect_json: bool = False, fallback_field: str = "", fallback_rule: str = "") -> str:
+def ask_llm(prompt: str, expect_json: bool = False, fallback_field: str = "", fallback_rule: str = "") -> dict | str:
     """
     Sends a prompt to the local Ollama model and returns the response.
-    If `expect_json=True`, guarantees JSON structure even if the model returns a broken string.
+    If `expect_json=True`, attempts to parse JSON and return a dict.
+    Otherwise, returns plain string response.
     """
     try:
-        logger.info(f" Prompting model '{MODEL_NAME}' with prompt:\n{prompt[:300]}...")
+        logger.info(f"\n📤 Prompt sent to LLM ({MODEL_NAME}):\n{prompt}\n")
 
         response = ollama.chat(
             model=MODEL_NAME,
@@ -29,47 +30,55 @@ def ask_llm(prompt: str, expect_json: bool = False, fallback_field: str = "", fa
 
         if not message:
             logger.warning("⚠️ LLM returned empty content.")
-            return json.dumps({
+            return {
                 "test_case_name": fallback_field or "Generated Test",
-                "description": f"{fallback_field} must satisfy the rule: {fallback_rule}",
+                "description": f"The field '{fallback_field}' must follow the rule: {fallback_rule}",
                 "test_category": "Accuracy"
-            })
+            } if expect_json else ""
 
-        # Strip ```json or ``` wrappers
-        message = re.sub(r"^```(?:json|yaml)?\s*", "", message, flags=re.IGNORECASE).strip()
+        # Clean any markdown/code block wrappers like ```json ... ```
+        message = re.sub(r"^```(?:json|yaml)?", "", message, flags=re.IGNORECASE).strip()
         message = re.sub(r"```$", "", message).strip()
 
+        # Try to parse JSON if required
         if expect_json:
-            # If it's a plain quoted string, wrap it
+            if isinstance(message, dict):
+                return message  # Already a dict (not common)
+
+            # Handle if LLM returns a string wrapped in quotes
             if message.startswith('"') and message.endswith('"'):
-                logger.warning("⚠️ Plain string returned — wrapping into fallback JSON.")
-                return json.dumps({
+                logger.warning("⚠️ LLM returned a quoted string instead of a JSON object.")
+                return {
                     "test_case_name": message.strip('"'),
-                    "description": f"{fallback_field} must satisfy the rule: {fallback_rule}",
+                    "description": f"The field '{fallback_field}' must follow the rule: {fallback_rule}",
                     "test_category": "Accuracy"
-                })
+                }
 
             try:
                 parsed = json.loads(message)
                 if isinstance(parsed, dict) and "test_case_name" in parsed:
-                    parsed.setdefault("description", f"{fallback_field} must satisfy the rule: {fallback_rule}")
+                    parsed.setdefault("description", f"The field '{fallback_field}' must follow the rule: {fallback_rule}")
                     parsed.setdefault("test_category", "Accuracy")
-                    return json.dumps(parsed)
-            except Exception:
-                logger.warning(" JSON parse failed. Using fallback format.")
+                    return parsed
+                else:
+                    raise ValueError("Parsed object missing required keys.")
+            except Exception as e:
+                logger.warning(f"❌ JSON parse failed: {e}\n📥 Raw message: {message}")
 
-            return json.dumps({
+            # Fallback response if parsing fails
+            return {
                 "test_case_name": fallback_field or "Generated Test",
-                "description": f"{fallback_field} must satisfy the rule: {fallback_rule}",
+                "description": f"The field '{fallback_field}' must follow the rule: {fallback_rule}",
                 "test_category": "Accuracy"
-            })
+            }
 
+        # If not expecting JSON, return as plain text
         return message
 
     except Exception as e:
-        logger.error(f" LLM Error: {str(e)}")
-        return json.dumps({
+        logger.error(f"❌ LLM Request Failed: {str(e)}")
+        return {
             "test_case_name": fallback_field or "Generated Test",
-            "description": f"{fallback_field} must satisfy the rule: {fallback_rule}",
+            "description": f"The field '{fallback_field}' must follow the rule: {fallback_rule}",
             "test_category": "Accuracy"
-        })
+        } if expect_json else ""

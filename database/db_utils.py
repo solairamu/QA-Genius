@@ -2,6 +2,8 @@ import mysql.connector
 from mysql.connector import Error
 from utils.logger import get_logger
 import pandas as pd
+import shutil
+import os
 
 # --- Logger Setup ---
 logger = get_logger(__name__)
@@ -10,39 +12,59 @@ logger = get_logger(__name__)
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Kdata@2025",  # 🔐 Secure this in production
-    "database": "qa_genius_v2"
+    "password": "Kdata@2025",
+    "database": "qa_genius_v3"
 }
 
 def get_connection():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         if conn.is_connected():
-            logger.info("✅ Connected to MySQL database.")
+            logger.info("Connected to MySQL database.")
             return conn
     except Error as e:
-        logger.error(f"❌ Database connection failed: {str(e)}")
+        logger.error(f" Database connection failed: {str(e)}")
     return None
 
-def insert_project(name: str, description: str) -> int:
+def insert_project(name: str, description: str, mapping_file: str = None, brd_file: str = None) -> int:
     conn = get_connection()
     if not conn:
-        logger.error("❌ Project insert aborted due to DB connection failure.")
+        logger.error(" Project insert aborted due to DB connection failure.")
         return -1
     try:
         cursor = conn.cursor()
         query = """
-            INSERT INTO projects (name, description, created_at)
-            VALUES (%s, %s, NOW())
+            INSERT INTO projects (name, description, mapping_file, brd_file, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
         """
-        cursor.execute(query, (name, description))
+        cursor.execute(query, (name, description, mapping_file, brd_file))
         conn.commit()
         project_key = cursor.lastrowid
-        logger.info(f"🎕 Project inserted — ID={project_key}, Name='{name}'")
+        logger.info(f" Project inserted — ID={project_key}, Name='{name}'")
         return project_key
     except Error as e:
-        logger.error(f"❌ Failed to insert project: {str(e)}")
+        logger.error(f" Failed to insert project: {str(e)}")
         return -1
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_uploaded_files(project_key: int, mapping_file: str, brd_file: str):
+    conn = get_connection()
+    if not conn:
+        return
+    try:
+        cursor = conn.cursor()
+        query = """
+            UPDATE projects
+            SET mapping_file = %s, brd_file = %s
+            WHERE project_key = %s
+        """
+        cursor.execute(query, (mapping_file, brd_file, project_key))
+        conn.commit()
+        logger.info(f" Updated uploaded file names for project_key={project_key}")
+    except Error as e:
+        logger.error(f" Failed to update uploaded files: {e}")
     finally:
         cursor.close()
         conn.close()
@@ -62,13 +84,13 @@ def get_next_test_script_id(project_key: int, conn) -> str:
             return f"SQL{last_num + 1:03d}"
         return "SQL001"
     except Exception as e:
-        logger.error(f"❌ Failed to generate test_script_id: {e}")
+        logger.error(f" Failed to generate test_script_id: {e}")
         return "SQL001"
 
 def insert_test_artifact(project_key: int, row_data: dict) -> bool:
     conn = get_connection()
     if not conn:
-        logger.error("❌ Test artifact insert aborted due to DB connection failure.")
+        logger.error(" Test artifact insert aborted due to DB connection failure.")
         return False
     try:
         test_script_id = get_next_test_script_id(project_key, conn)
@@ -101,10 +123,10 @@ def insert_test_artifact(project_key: int, row_data: dict) -> bool:
         )
         cursor.execute(query, values)
         conn.commit()
-        logger.info(f"✅ Test artifact inserted — {row_data.get('test_case_id')} ({test_script_id})")
+        logger.info(f" Test artifact inserted — {row_data.get('test_case_id')} ({test_script_id})")
         return True
     except Error as e:
-        logger.error(f"❌ Failed to insert test artifact: {str(e)}")
+        logger.error(f" Failed to insert test artifact: {str(e)}")
         return False
     finally:
         cursor.close()
@@ -116,10 +138,13 @@ def fetch_all_projects():
         return []
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT project_key, name, description, created_at FROM projects ORDER BY created_at DESC")
+        cursor.execute("""
+            SELECT project_key, name, description, mapping_file, brd_file, created_at 
+            FROM projects ORDER BY created_at DESC
+        """)
         return cursor.fetchall()
     except Error as e:
-        logger.error(f"❌ Failed to fetch projects: {str(e)}")
+        logger.error(f" Failed to fetch projects: {str(e)}")
         return []
     finally:
         cursor.close()
@@ -148,7 +173,7 @@ def fetch_test_cases_by_project(project_key: int) -> pd.DataFrame:
         df = pd.read_sql(query, conn, params=(project_key,))
         return df
     except Error as e:
-        logger.error(f"❌ Failed to fetch test cases: {str(e)}")
+        logger.error(f" Failed to fetch test cases: {str(e)}")
         return pd.DataFrame()
     finally:
         conn.close()
@@ -162,10 +187,17 @@ def delete_project_and_artifacts(project_key: int) -> bool:
         cursor.execute("DELETE FROM test_cases WHERE project_key = %s", (project_key,))
         cursor.execute("DELETE FROM projects WHERE project_key = %s", (project_key,))
         conn.commit()
-        logger.info(f"❌ Deleted project and artifacts for project_key = {project_key}")
+
+        # --- Delete uploaded files folder ---
+        upload_dir = f"uploads/project_{project_key}"
+        if os.path.exists(upload_dir):
+            shutil.rmtree(upload_dir)
+            logger.info(f" Deleted file folder: {upload_dir}")
+
+        logger.info(f" Deleted project and artifacts for project_key = {project_key}")
         return True
     except Error as e:
-        logger.error(f"❌ Failed to delete project and artifacts: {str(e)}")
+        logger.error(f" Failed to delete project and artifacts: {str(e)}")
         return False
     finally:
         cursor.close()
@@ -181,82 +213,65 @@ def fetch_all_project_keys_in_test_cases() -> list:
         keys = [row[0] for row in cursor.fetchall()]
         return keys
     except Error as e:
-        logger.error(f"❌ Failed to fetch project keys from test_cases: {str(e)}")
+        logger.error(f" Failed to fetch project keys from test_cases: {str(e)}")
         return []
     finally:
         cursor.close()
         conn.close()
 
 def initialize_database():
-    """
-    Initialize the QA Genius database and create necessary tables.
-    This function creates the database and tables if they don't exist.
-    """
-    logger.info("🗄️ Initializing QA Genius database...")
-    
+    """Initialize the database and create tables if they don't exist"""
     try:
-        # First, connect without specifying a database to create it
-        base_config = {
-            "host": DB_CONFIG["host"],
-            "user": DB_CONFIG["user"],
-            "password": DB_CONFIG["password"]
-        }
+        # First connect without specifying database to create it if needed
+        config_without_db = DB_CONFIG.copy()
+        database_name = config_without_db.pop('database')
         
-        conn = mysql.connector.connect(**base_config)
+        conn = mysql.connector.connect(**config_without_db)
         cursor = conn.cursor()
         
         # Create database if it doesn't exist
-        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
-        logger.info(f"✅ Database '{DB_CONFIG['database']}' ready")
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {database_name}")
+        cursor.execute(f"USE {database_name}")
         
-        cursor.close()
-        conn.close()
+        logger.info(f"Database '{database_name}' created or already exists")
         
-        # Now connect to the specific database
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
+        # Create tables if they don't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS projects (
+                project_key INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                mapping_file VARCHAR(255),
+                brd_file VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         
-        # Create projects table with project_key to match the code
-        create_projects_table = """
-        CREATE TABLE IF NOT EXISTS projects (
-            project_key INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-        cursor.execute(create_projects_table)
-        logger.info("✅ Projects table ready")
-        
-        # Create test_cases table with corrected schema
-        create_test_cases_table = """
-        CREATE TABLE IF NOT EXISTS test_cases (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            project_key INT,
-            test_case_id VARCHAR(100),
-            test_case_name VARCHAR(255),
-            description TEXT,
-            table_name VARCHAR(255),
-            column_name VARCHAR(255),
-            test_category VARCHAR(100),
-            test_script_id VARCHAR(100),
-            test_script_sql TEXT,
-            requirement_id VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (project_key) REFERENCES projects(project_key) ON DELETE CASCADE
-        )
-        """
-        cursor.execute(create_test_cases_table)
-        logger.info("✅ Test cases table ready")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS test_cases (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_key INT,
+                test_case_id VARCHAR(100),
+                test_case_name VARCHAR(255),
+                description TEXT,
+                table_name VARCHAR(255),
+                column_name VARCHAR(255),
+                test_category VARCHAR(100),
+                test_script_id VARCHAR(100),
+                test_script_sql TEXT,
+                requirement_id VARCHAR(100),
+                FOREIGN KEY (project_key) REFERENCES projects(project_key) ON DELETE CASCADE
+            )
+        """)
         
         conn.commit()
-        logger.info("🎉 Database initialization completed successfully!")
+        logger.info("Database tables created or already exist")
         
     except Error as e:
-        logger.error(f"❌ Database initialization failed: {str(e)}")
-        raise Exception(f"Database initialization failed: {str(e)}")
+        logger.error(f"Failed to initialize database: {str(e)}")
+        raise
     finally:
-        if 'cursor' in locals():
+        if cursor:
             cursor.close()
-        if 'conn' in locals():
+        if conn:
             conn.close()

@@ -1,23 +1,28 @@
 test_case_template: |
-  You are an expert QA analyst validating data migration in regulated enterprise environments.
+  You are a senior QA test engineer working on data validation test cases for a data migration project. 
 
-  Your task is to write a clear and concise validation rule in plain business English based on the provided data field and rule logic.
+  Your goal is to return the following three values in JSON format:
+
+  1. **test_case_name**: A short business-readable title (less than 10 words). Avoid repeating column or table names directly. 
+  2. **description**: A single formal sentence with at least 25 words that:
+     - Describes what is being validated.
+     - Explains why this validation is important for data quality or business reporting.
+     - Mentions what could go wrong or the expected impact if the rule fails (e.g., inaccurate reporting, incorrect mapping, regulatory non-compliance).
+     - Avoid repeating exact input like field or rule strings. Use natural business language.
+     - Do NOT use multiple sentences or bullet points.
+  3. **test_category**: Choose one from [Accuracy, Validity, Completeness, Consistency, Uniqueness] based on the logic.
 
   Input:
-  - Data Field: {field}
-  - Rule Logic: {rule}
+  - Field: {field}
+  - Rule: {rule}
 
-  Instructions:
-  - Write **exactly one sentence** that clearly conveys what the field is for and what condition it must satisfy.
-  - The sentence must describe the business relevance of the field **and** its expected behavior using verbs like: "must be", "must match", "must not be", "should be", or "should conform to".
-  - Do **not** use technical terms, SQL keywords, programming syntax, or abbreviations.
-  - Do **not** add any prefixes like “Business Rule:”, “Explanation:”, bullets, numbering, or headings.
-  - Do **not** add multiple sentences — output must be **one simple English sentence**.
-  - Assume your audience is a non-technical business user or QA stakeholder.
-  - Focus on clarity, readability, and precision — treat this like a formal requirement line.
-
-  Output Format:
-  - Just one full sentence, written naturally. No formatting, labels, or extra commentary.
+  Output (strict JSON):
+  ```json
+  {{
+    "test_case_name": "Business-friendly short title",
+    "description": "One long formal sentence (at least 25 words) that describes the rule, the importance of validating it, and the business impact of failures.",
+    "test_category": "Choose only one: Accuracy / Validity / Completeness / Consistency / Uniqueness"
+  }}
 
 
 

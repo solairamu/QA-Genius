@@ -1,29 +1,72 @@
 import streamlit as st
-from ui import project_setup, view_artifacts, view_projects  # make sure view_projects.py exists
+import base64
+import os
+from ui import project_overview, project_setup, view_projects, view_artifacts
 
 # --- Page Config ---
 st.set_page_config(
     page_title="QA Genius - AI Test Generator",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# --- Custom Header ---
-st.markdown("<h2 style='text-align:center;'> QA Genius — AI Test Case & Script Generator</h2>", unsafe_allow_html=True)
-st.markdown("---")
+# --- Sidebar Header ---
+st.sidebar.title(" Navigate To")
 
-# --- Tab Navigation with new tab in middle ---
-tab1, tab2, tab3 = st.tabs([
-    " Project Setup",
-    " View Projects",      
-    " View Artifacts"
-])
+# --- CSS: Clean top radio space and pin bottom logo (main page level) ---
+st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] {
+        padding-top: 0px;
+        margin-top: -15px;
+    }
 
-with tab1:
+    /* Absolute pin logo to true bottom-left corner of sidebar */
+    #bottom-kdata-logo {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 999999;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- Sidebar Navigation ---
+selected_tab = st.sidebar.radio(
+    label="",
+    options=[" Project Overview", " Project Setup", " View Projects", " View Artifacts"]
+)
+
+# --- Base64 Encode Logo ---
+def get_base64_image(path):
+    if os.path.exists(path):
+        try:
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+        except Exception:
+            return None
+    return None
+
+logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
+logo_base64 = get_base64_image(logo_path)
+
+# --- Render Logo outside sidebar, pinned to bottom-left ---
+if logo_base64:
+    st.markdown(
+        f"""
+        <div id="bottom-kdata-logo">
+            <img src="data:image/png;base64,{logo_base64}" width="80">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# --- Tab Routing ---
+if selected_tab == " Project Overview":
+    project_overview.show()
+elif selected_tab == " Project Setup":
     project_setup.show()
-
-with tab2:
-    view_projects.show()  
-
-with tab3:
+elif selected_tab == " View Projects":
+    view_projects.show()
+elif selected_tab == " View Artifacts":
     view_artifacts.show()
