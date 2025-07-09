@@ -21,7 +21,7 @@ test_case_template: |
   {{
     "test_case_name": "Business-friendly short title",
     "description": "One long formal sentence (at least 25 words) that describes the rule, the importance of validating it, and the business impact of failures.",
-    "test_category": "Choose only one: Accuracy / Validity / Completeness / Consistency / Uniqueness"
+    "test_category": "Choose only one: Accuracy / Validity / Completeness / Consistency / Uniqueness/ Timeliness"
   }}
 
 

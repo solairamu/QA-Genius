@@ -1,6 +1,5 @@
 import streamlit as st
 import base64
-import os
 from ui import project_overview, project_setup, view_projects, view_artifacts
 
 # --- Page Config ---
@@ -34,46 +33,28 @@ st.markdown("""
 # --- Sidebar Navigation ---
 selected_tab = st.sidebar.radio(
     label="",
-    options=[" Project Overview", " Project Setup", " View Projects", " View Artifacts"]
+    options=[" Home", " Project Setup", " View Projects", " View Artifacts"]
 )
 
 # --- Base64 Encode Logo ---
-def get_base64_image(local_path, fallback_path):
-    # First try local images folder
-    if os.path.exists(local_path):
-        try:
-            with open(local_path, "rb") as f:
-                return base64.b64encode(f.read()).decode()
-        except Exception:
-            pass
-    
-    # Then try original hardcoded path
-    if os.path.exists(fallback_path):
-        try:
-            with open(fallback_path, "rb") as f:
-                return base64.b64encode(f.read()).decode()
-        except Exception:
-            pass
-    
-    return None
+def get_base64_image(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
-local_logo_path = "images/Only logo.png"
-fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
-logo_base64 = get_base64_image(local_logo_path, fallback_logo_path)
+logo_base64 = get_base64_image("C:/codes/teststreamlit/KData_logo/Only logo.png")
 
 # --- Render Logo outside sidebar, pinned to bottom-left ---
-if logo_base64:
-    st.markdown(
-        f"""
-        <div id="bottom-kdata-logo">
-            <img src="data:image/png;base64,{logo_base64}" width="80">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+st.markdown(
+    f"""
+    <div id="bottom-kdata-logo">
+        <img src="data:image/png;base64,{logo_base64}" width="80">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # --- Tab Routing ---
-if selected_tab == " Project Overview":
+if selected_tab == " Home":
     project_overview.show()
 elif selected_tab == " Project Setup":
     project_setup.show()
