@@ -7,8 +7,8 @@ import base64
 
 def show():
     # --- Logo as Top-Right Banner (smaller + aligned) ---
-    local_logo_path = "images/Name & tag only.png"  # Note: using actual filename from images folder
-    fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Name & tag Only.png"
+    local_logo_path = "images/Full logo-KData.png"  # Note: using actual filename from images folder
+    fallback_logo_path = "C:/codes/teststreamlit/KData_logo/Full logo-KData.png"
     
     # Check local images folder first, then fallback path
     logo_path = None

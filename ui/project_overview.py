@@ -34,9 +34,9 @@ def show():
     **QA Genius** is a smart and secure AI assistant built to simplify QA efforts in data migration and transformation projects.
 
     **Key Highlights:**
-    -  **Automated Test Case Generation** using AI from mapping specs and requirement documents  
-    -  **Dimension-Based Rule Classification** (e.g., Accuracy, Completeness, Consistency, etc.)  
-    -  **Test Logic Extraction from BRDs** written in natural language  
+    -  **Automated Test Case Generation** using AI to derive accurate test logic with minimal manual effort.  
+    -  **Smart Test Categorization** - Automatically Classifies test cases under the right data quality dimension: Accuracy, Completeness, Consistency,Uniqueness, Validity or Timeliness.  
+    -  **Intelligent Rule Extraction** - Translates business rules into structures test validations, enabling seamless QA without manual interpretation.
     -  **Modular and Scalable** – Easy to plug into larger QA workflows    
     -  **No Internet Dependency** – Can run in isolated or secure environments   
     -  **Designed with Security in Mind** – No cloud dependency, ideal for sensitive environments
