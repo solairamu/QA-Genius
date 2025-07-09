@@ -37,7 +37,7 @@ def show():
             # Silently skip logo if there's any error reading it
             pass
 
-    st.subheader(" Create Project")
+    st.subheader(" Create Project ➕")
 
     # --- Reset session state only once ---
     if "project_setup_visited" not in st.session_state:
@@ -55,31 +55,27 @@ def show():
     # --- Template Downloads ---
     mapping_template_path = Path("templates/mapping_spec_template.xlsx")
     if mapping_template_path.exists():
-        try:
-            with open(mapping_template_path, "rb") as f:
-                st.download_button(
-                    label="📥 Download Mapping Template",
-                    data=f.read(),
-                    file_name="mapping_template.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-        except Exception:
-            # Silently skip template if there's any error reading it
-            pass
+        with open(mapping_template_path, "rb") as f:
+            st.download_button(
+                label="📥 Download Mapping Template",
+                data=f,
+                file_name="mapping_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    else:
+        st.warning("⚠️ Mapping template not found.")
 
     brd_template_path = Path("templates/Business_Requirements_Template.docx")
     if brd_template_path.exists():
-        try:
-            with open(brd_template_path, "rb") as f:
-                st.download_button(
-                    label="📥 Download BRD Template",
-                    data=f.read(),
-                    file_name="brd_template.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-        except Exception:
-            # Silently skip template if there's any error reading it
-            pass
+        with open(brd_template_path, "rb") as f:
+            st.download_button(
+                label="📥 Download BRD Template",
+                data=f,
+                file_name="brd_template.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+    else:
+        st.warning("⚠️ BRD template not found.")
 
     # --- File Uploaders ---
     mapping_file = st.file_uploader("Upload Mapping Spec (Excel)", type=["xlsx"], key="mapping")
@@ -96,7 +92,7 @@ def show():
                 try:
                     # Step 1: Create project folder
                     clean_project_name = project_name.replace(" ", "_")
-                    project_folder = Path("uploads") / clean_project_name
+                    project_folder = Path("uploaded_files") / clean_project_name
                     project_folder.mkdir(parents=True, exist_ok=True)
 
                     # Step 2: Save mapping file
@@ -116,19 +112,15 @@ def show():
                     # Step 4: Parse mapping spec
                     metadata_df, rule_df = parse_mapping_file(mapping_file)
 
-                    # Step 5: Insert project record with relative file paths for cross-platform compatibility
+                    # Step 5: Insert project record with file names only
                     try:
-                        # Store relative paths in database for cross-platform compatibility
-                        relative_mapping_path = f"uploads/{clean_project_name}/{mapping_filename}"
-                        relative_brd_path = f"uploads/{clean_project_name}/{brd_filename}" if brd_filename else None
-                        
                         project_key = insert_project(
                             project_name,
                             project_desc,
-                            relative_mapping_path,
-                            relative_brd_path
+                            str(project_folder / mapping_filename),
+                            str(project_folder / brd_filename) if brd_filename else None
                         )
-                        st.success(f"✅ Project inserted with ID: {project_key}")
+                        st.success(f" Project inserted with ID: {project_key}")
                     except Exception as db_err:
                         st.warning(f"⚠️ Project not saved to DB: {db_err}")
                         project_key = None
@@ -139,14 +131,14 @@ def show():
                     if final_df.empty:
                         st.warning("⚠️ No test cases generated. Check your mapping file.")
                     else:
-                        st.success(f"✅ {len(final_df)} test artifacts generated.")
-                        display_df = final_df.drop(columns=["test_script_sql"], errors="ignore")
-                        st.dataframe(display_df, use_container_width=True)
+                        st.success(f" {len(final_df)} test artifacts generated.")
+                        #display_df = final_df.drop(columns=["test_script_sql"], errors="ignore")
+                        #st.dataframe(display_df, use_container_width=True)
 
                         csv_data = convert_df_to_download(final_df)
-                        st.download_button("📥 Download Test Artifacts CSV", csv_data, file_name="test_artifacts.csv")
+                        #st.download_button("📥 Download Test Artifacts CSV", csv_data, file_name="test_artifacts.csv")
 
                 except Exception as e:
                     st.error(f"❌ Generation failed: {e}")
     else:
-        st.info("📌 Please upload your mapping file to continue.")
+        st.info(" Please upload your mapping file to continue.")

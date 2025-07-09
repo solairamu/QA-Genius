@@ -35,7 +35,7 @@ def show():
             # Silently skip logo if there's any error reading it
             pass
 
-    st.subheader(" Project Summary Table")
+    st.subheader(" Project Records 📋")
 
     # --- Setup session state for previews ---
     if "view_mapping_row" not in st.session_state:

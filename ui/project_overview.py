@@ -27,22 +27,33 @@ def show():
         st.markdown("<br>", unsafe_allow_html=True)
 
     # --- Title ---
-    st.subheader("About our Product: QA Genius")
+    st.subheader("Intelligent QA: Offline AI Engine for Systematic, Standards-Based Data Quality Testing")
 
-    # --- Key Product Highlights ---
+    # --- Updated Product Description ---
     st.markdown("""
-    **QA Genius** is a smart and secure AI assistant built to simplify QA efforts in data migration and transformation projects.
+QA Genius delivers full-scope, high-trust data testing—offline, intelligent, and aligned to industry best practices.  
+It ingests your BRDs and mapping specs, breaks them down into logical testable units, and generates exhaustive QA coverage across critical data quality dimensions.
 
-    **Key Highlights:**
-    -  **Automated Test Case Generation** using AI to derive accurate test logic with minimal manual effort.  
-    -  **Smart Test Categorization** - Automatically Classifies test cases under the right data quality dimension: Accuracy, Completeness, Consistency,Uniqueness, Validity or Timeliness.  
-    -  **Intelligent Rule Extraction** - Translates business rules into structures test validations, enabling seamless QA without manual interpretation.
-    -  **Modular and Scalable** – Easy to plug into larger QA workflows    
-    -  **No Internet Dependency** – Can run in isolated or secure environments   
-    -  **Designed with Security in Mind** – No cloud dependency, ideal for sensitive environments
-    """)
+#### 💡 Core Capabilities
+
+✓ **Automated Test Case Generation** — Instantly turns uploaded documents into test cases with no manual effort.  
+✓ **Business Rule Translation to Execution** — Converts high-level business rules into field-level, column-level, and cross-entity validations.  
+✓ **Scalable & Pluggable** — Designed to slot into larger QA ecosystems with modular ease.  
+✓ **Fully Offline Deployment** — Runs completely offline, making it suitable for government, defense, healthcare, and other high-security environments.
+
+#### 🔍 Comprehensive Testing Across 6 Key Dimensions
+
+QA Genius ensures systematic coverage across every data quality pillar—not just spot checks, but full-spectrum scanning aligned with industry frameworks:
+
+ - **Accuracy** — Are values correct and within expected ranges?  
+ - **Completeness** — Are mandatory fields populated as required?  
+ - **Consistency** — Are formats and relationships between fields logically coherent?  
+ - **Uniqueness** — Are key identifiers truly distinct when they need to be?  
+ - **Validity** — Do values conform to domain-specific rules, formats, and types?  
+ - **Timeliness** — Is the data current and refreshed within acceptable thresholds?
+""")
 
     # --- Architecture Placeholder ---
     st.markdown("---")
-    st.markdown("### Architecture")
-    st.info(" Architecture diagram will be uploaded soon.")
+    st.markdown("### 🧱 Architecture")
+    st.info("Architecture diagram will be uploaded soon.")

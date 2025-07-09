@@ -35,7 +35,7 @@ def show():
             # Silently skip logo if there's any error reading it
             pass
 
-    st.subheader("View Artifacts")
+    st.subheader("View Artifacts 🗃️")
 
     # --- Load Projects ---
     conn = get_connection()

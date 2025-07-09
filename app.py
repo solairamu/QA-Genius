@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 # --- Sidebar Header ---
-st.sidebar.title(" Navigate To")
+st.sidebar.title("📌 Navigate To")
 
 # --- CSS: Clean top radio space and pin bottom logo (main page level) ---
 st.markdown("""
@@ -30,10 +30,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar Navigation ---
+# --- Sidebar Navigation with Emojis ---
 selected_tab = st.sidebar.radio(
     label="",
-    options=[" Home", " Project Setup", " View Projects", " View Artifacts"]
+    options=[
+        " Home",
+        " Project Setup",
+        " View Projects",
+        " View Artifacts"
+    ]
 )
 
 # --- Base64 Encode Logo ---
