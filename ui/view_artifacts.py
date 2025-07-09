@@ -7,7 +7,7 @@ import base64
 def show():
     # --- Logo ---
    # logo_path = "C:/codes/teststreamlit/KData_logo/Only logo.png"
-    logo_path = "Images/Only logo.png"
+    logo_path = "images/Only logo.png"
     with open(logo_path, "rb") as f:
         encoded_logo = base64.b64encode(f.read()).decode()
 

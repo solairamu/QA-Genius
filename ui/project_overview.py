@@ -46,7 +46,7 @@ QA Genius ensures systematic coverage across every data quality pillar—not jus
     st.markdown("### 🧱 Architecture")
 
    # architecture_path = "C:/Users/User/Downloads/Arch Diagram.png"
-    architecture_path = "Images/Arch Diagram.png"
+    architecture_path = "images/Arch Diagram.png"
     try:
         #  Fix extra spacing above/below the image
         st.markdown("""
